@@ -3,6 +3,8 @@
 #include <numeric>
 #include <climits>
 #include <iostream>
+#include <chrono>
+#include "neighbourhood.h"
 
 // Delta funkcji celu przy wstawieniu v między a i b:
 // delta = profit[v] + dist[a][b] - dist[a][v] - dist[v][b]
@@ -10,10 +12,34 @@
 extern std::vector<AlgoStats> phaseIA_length;
 extern std::vector<AlgoStats> phaseIB_length;
 extern bool useA;
-static inline int insertionDelta(int a, int v, int b,
+static inline int insertionDelta(int previous, int inserted, int latter,
                                  const TSPInstance& tsp, bool useProfit) {
-    int d = tsp.dist[a][b] - tsp.dist[a][v] - tsp.dist[v][b];
-    if (useProfit) d += tsp.nodes[v].profit;
+    int d = tsp.dist[previous][latter] - tsp.dist[previous][inserted] - tsp.dist[inserted][latter];
+    if (useProfit) d += tsp.nodes[inserted].profit;
+    return d;
+}
+static inline int removalDelta(int previous, int removed, int latter,
+                                 const TSPInstance& tsp, bool useProfit) {
+    int d = tsp.dist[previous][latter] - tsp.dist[previous][removed] - tsp.dist[removed][latter];
+    if (useProfit) d -= tsp.nodes[removed].profit;
+    return d;
+}
+static inline int swapVerticesDelta(int prev_1, int to_swap_1, int latter_1,
+                                   int prev_2, int to_swap_2, int latter_2,
+                                   const TSPInstance& tsp) {
+    int d = 0;
+    // Usuwamy to_swap_1 i wstawiamy to_swap_2
+    d += tsp.dist[prev_1][to_swap_1] + tsp.dist[to_swap_1][latter_1] - tsp.dist[prev_1][to_swap_2] - tsp.dist[to_swap_2][latter_1];
+    // Usuwamy to_swap_2 i wstawiamy to_swap_1
+    d += tsp.dist[prev_2][to_swap_2] + tsp.dist[to_swap_2][latter_2] - tsp.dist[prev_2][to_swap_1] - tsp.dist[to_swap_1][latter_2];
+    return d;
+}
+
+static inline int swapEdgesDelta(int previous, int first_to_swap, int last_to_swap,int latter, const TSPInstance& tsp) {
+    int d = 0;
+    // Usuwamy krawędzie (previous, to_reverse[0]), (to_reverse[i], to_reverse[i+1]) dla i=0..k-2 oraz (to_reverse[k-1], latter)
+    // i wstawiamy krawędzie (previous, to_reverse[k-1]), (to_reverse[i], to_reverse[i-1]) dla i=k-1..1 oraz (to_reverse[0], latter)
+    d += tsp.dist[previous][first_to_swap] + tsp.dist[last_to_swap][latter] - tsp.dist[previous][last_to_swap] - tsp.dist[first_to_swap][latter];
     return d;
 }
 
@@ -256,9 +282,53 @@ std::vector<int> phaseII(std::vector<int> tour, const TSPInstance& tsp) {
     return tour;
 }
 
+std::vector<int> getBaseSolution(const TSPInstance& tsp, BaseSolutionType type, int runs = 1) {
+    AlgoStats stats;
+    switch(type) {
+        case BaseSolutionType::best:
+            stats = collectStats(regretGC, tsp, false, runs);
+            break;
+        case BaseSolutionType::random: {
+            std::mt19937 rng(69);
+            stats = collectRandomStats(tsp, runs, rng);
+        }
+    }
+    return stats.bestTour;
+}
+AlgoStatsTimed collectStatsWalk(AlgoFuncWalk algo, std::vector<int> base_solution,const TSPInstance& tsp, InTourMoveType move_type, int n = -1) {
+    if (n == -1) n = tsp.size();
+    
+    Stats score_stats{ 0.0, INT_MAX, INT_MIN };
+    TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
+    std::vector<int> bestTour;
+    int bestScore = INT_MIN;
+    for (int s = 0; s < n; ++s) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        auto tour    = algo(s, tsp, base_solution, move_type);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        long long duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
-AlgoStats collectStats(AlgoFunc algo, const TSPInstance& tsp, bool useProfit) {
-    int n = tsp.size();
+        int  score1  = tsp.evaluate(tour);
+        score_stats.avg += score1;
+        score_stats.min  = std::min(score_stats.min, score1);
+        score_stats.max  = std::max(score_stats.max, score1);
+        time_stats.avg += duration;
+        time_stats.min  = std::min(time_stats.min, duration);
+        time_stats.max  = std::max(time_stats.max, duration);
+
+        if (score1 > bestScore) {
+            bestScore = score1;
+            bestTour  = tour;
+        }
+    }
+
+    score_stats.avg /= n;
+    time_stats.avg /= n;
+    return { time_stats, score_stats, bestTour };
+}
+
+AlgoStats collectStats(AlgoFunc algo, const TSPInstance& tsp, bool useProfit, int n = -1) {
+    if (n == -1) n = tsp.size();
 
     Stats s1{ 0.0, INT_MAX, INT_MIN };
     Stats s1_len{ 0.0, INT_MAX, INT_MIN };
@@ -357,3 +427,110 @@ AlgoStats collectRandomStats(const TSPInstance& tsp, int runs, std::mt19937& rng
     s2.avg /= runs;
     return { s1, s2, bestTour };
 }
+AlgoStatsTimed collectRandomWalkStats(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, int runs, std::mt19937& rng,double one_run_time_limit) {
+    Stats score_stats{ 0.0, INT_MAX, INT_MIN };
+    TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
+    std::vector<int> bestTour;
+    int bestScore = INT_MIN;
+    for (int i = 0; i < runs; ++i) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        auto tour   = randomWalk(i, tsp, base_solution, move_type, one_run_time_limit);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        long long duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+        int  score1 = tsp.evaluate(tour);
+        score_stats.avg += score1;
+        score_stats.min  = std::min(score_stats.min, score1);
+        score_stats.max  = std::max(score_stats.max, score1);
+        time_stats.avg += duration;
+        time_stats.min  = std::min(time_stats.min, duration);
+        time_stats.max  = std::max(time_stats.max, duration);
+
+        if (score1 > bestScore) {
+            bestScore = score1;
+            bestTour  = tour;
+        }
+    }
+    score_stats.avg /= runs;
+    time_stats.avg /= runs;
+    return { time_stats, score_stats, bestTour };
+
+}
+int transformation_delta(const Neighbour& neighbor,std::vector<int>& tour, const TSPInstance& tsp) {
+    int delta = 0;
+    int k= static_cast<int>(tour.size());
+    switch(neighbor.type) {
+            case MoveType::Add:
+                delta = insertionDelta(tour[(neighbor.second-1+k)% k],tour[neighbor.first],tour[neighbor.second], tsp, true);
+                break;
+            case MoveType::remove:
+                delta = removalDelta(tour[(neighbor.first-1+k)% k],tour[neighbor.first],tour[(neighbor.first + 1+k)% k], tsp, true);
+                break;
+            case MoveType::swap_vertices:
+                delta = swapVerticesDelta(tour[(neighbor.first-1+k)% k], tour[neighbor.first], tour[(neighbor.first + 1+k)% k],tour[(neighbor.second-1+k)% k],tour[neighbor.second],tour[(neighbor.second + 1+k)% k], tsp);
+                break;
+            case MoveType::swap_edges:
+                delta = swapEdgesDelta(tour[neighbor.first], tour[(neighbor.first + 1+k)% k], tour[neighbor.second], tour[(neighbor.second + 1+k)% k], tsp);
+                break;
+            }
+    return delta;
+}
+std::vector<int> randomWalk(int start, const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, double time_limit) {
+    std::vector<int> tour = base_solution;
+    std::vector<int> bestTour = tour;
+    int bestScore= tsp.evaluate(tour);
+    int score = bestScore;
+    std::mt19937 rng(69);
+    int delta = 0;
+    double elapsed_time = 0.0;
+    auto walk_start_time = std::chrono::high_resolution_clock::now();
+
+    while(elapsed_time < time_limit) {
+
+        std::vector<Neighbour> neighbors = generateNeighbourhood(tour, tsp, move_type);
+        std::uniform_int_distribution<int> dist(0, static_cast<int>(neighbors.size()) - 1);
+
+        int choosen_idx = dist(rng);
+
+        if (neighbors.empty()) throw std::runtime_error("No neighbor generated in randomWalk at idx " + std::to_string(choosen_idx));
+
+        Neighbour neighbor = neighbors[choosen_idx];
+        delta = transformation_delta(neighbor, tour, tsp);
+        neighbor.transform(tour, tsp);
+        score += delta;
+        if( score > bestScore) {
+            bestTour = tour;
+            bestScore = score;
+        }
+        auto now = std::chrono::high_resolution_clock::now();
+        elapsed_time = std::chrono::duration_cast<std::chrono::duration<double>>(now - walk_start_time).count();
+    }
+    return bestTour;
+}
+std::vector<int> steepestWalk(int start, const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type){
+    std::vector<int> tour = base_solution;
+    int bestScore = tsp.evaluate(tour);
+    bool improved = true;
+    int score = bestScore;
+    Neighbour bestNeighbor = Neighbour(MoveType::Add, -1, -1);
+    while(improved) {
+
+        improved = false;
+        std::vector<Neighbour> neighbors = generateNeighbourhood(tour, tsp, move_type);
+        for(const Neighbour& neighbor : neighbors) {
+            int delta = transformation_delta(neighbor, tour, tsp);
+            if(delta > 0 && delta + score > bestScore) {
+                bestNeighbor = neighbor;
+                bestScore = delta + score;
+                improved = true;
+            }
+        }
+        if(improved) {
+            bestNeighbor.transform(tour, tsp);
+            score = bestScore;
+            bestNeighbor = Neighbour(MoveType::Add, -1, -1);
+        }
+    }
+    return tour;
+}
+
