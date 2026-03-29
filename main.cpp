@@ -6,6 +6,7 @@
 #include <random>
 #include "tsp.h"
 #include "algorithms.h"
+#include <filesystem>
 bool useA = true;
 std::vector<AlgoStats> phaseIA_length;
 std::vector<AlgoStats> phaseIB_length;
@@ -78,6 +79,25 @@ void updateTimeStats(AlgoStatsTimed& out_stats, AlgoStatsTimed new_stats,int run
     out_stats.score_stats.max = std::max(out_stats.score_stats.max, new_stats.score_stats.max);
 
 
+}
+void saveTourToFile(const std::string& filename, const std::vector<int>& tour) {
+    // 1. Definiujesz nazwę folderu
+    std::string folder = "wyniki_tsp"; 
+
+    // 2. Tworzysz folder (nic się nie stanie, jeśli już istnieje)
+    std::filesystem::create_directories(folder);
+
+    // 3. Łączysz folder z nazwą pliku za pomocą "/"
+    std::ofstream f(folder + "/" + filename);
+
+    if (f.is_open()) {
+        for (int node : tour) {
+            f << node << "\n";
+        }
+        f.close();
+    } else {
+        std::cerr << "Blad zapisu do: " << folder << "/" << filename << "\n";
+    }
 }
 int main() {
     std::mt19937 rng(69);
@@ -162,35 +182,35 @@ int main() {
     //print walk times 
     if(true){
     std::cout<<"algorytm;instancja;rozwiązanie bazowe;  typ ruchu wewnątrztrasowego; średni czas, max czas, min czas";
-    std::cout<<"greedy_walk;A;regretGC;swap_edges"<<greedy_walk_a_best_edges.time_stats.avg<<";"<<greedy_walk_a_best_edges.time_stats.max<<";"<<greedy_walk_a_best_edges.time_stats.min<<"\n";
-    std::cout<<"greedy_walk;B;regretGC;swap_edges"<<greedy_walk_b_best_edges.time_stats.avg<<";"<<greedy_walk_b_best_edges.time_stats.max<<";"<<greedy_walk_b_best_edges.time_stats.min<<"\n";
-    std::cout<<"greedy_walk;A;random;swap_edges"<<greedy_walk_a_random_edges.time_stats.avg<<";"<<greedy_walk_a_random_edges.time_stats.max<<";"<<greedy_walk_a_random_edges.time_stats.min<<"\n";
-    std::cout<<"greedy_walk;B;random;swap_edges"<<greedy_walk_b_random_edges.time_stats.avg<<";"<<greedy_walk_b_random_edges.time_stats.max<<";"<<greedy_walk_b_random_edges.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;A;regretGC;swap_edges;"<<greedy_walk_a_best_edges.time_stats.avg<<";"<<greedy_walk_a_best_edges.time_stats.max<<";"<<greedy_walk_a_best_edges.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;B;regretGC;swap_edges;"<<greedy_walk_b_best_edges.time_stats.avg<<";"<<greedy_walk_b_best_edges.time_stats.max<<";"<<greedy_walk_b_best_edges.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;A;random;swap_edges;"<<greedy_walk_a_random_edges.time_stats.avg<<";"<<greedy_walk_a_random_edges.time_stats.max<<";"<<greedy_walk_a_random_edges.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;B;random;swap_edges;"<<greedy_walk_b_random_edges.time_stats.avg<<";"<<greedy_walk_b_random_edges.time_stats.max<<";"<<greedy_walk_b_random_edges.time_stats.min<<"\n";
 
-    std::cout<<"greedy_walk;A;regretGC;swap_vertices"<<greedy_walk_a_best_vertices.time_stats.avg<<";"<<greedy_walk_a_best_vertices.time_stats.max<<";"<<greedy_walk_a_best_vertices.time_stats.min<<"\n";
-    std::cout<<"greedy_walk;B;regretGC;swap_vertices"<<greedy_walk_b_best_vertices.time_stats.avg<<";"<<greedy_walk_b_best_vertices.time_stats.max<<";"<<greedy_walk_b_best_vertices.time_stats.min<<"\n";
-    std::cout<<"greedy_walk;A;random;swap_vertices"<<greedy_walk_a_random_vertices.time_stats.avg<<";"<<greedy_walk_a_random_vertices.time_stats.max<<";"<<greedy_walk_a_random_vertices.time_stats.min<<"\n";
-    std::cout<<"greedy_walk;B;random;swap_vertices"<<greedy_walk_b_random_vertices.time_stats.avg<<";"<<greedy_walk_b_random_vertices.time_stats.max<<";"<<greedy_walk_b_random_vertices.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;A;regretGC;swap_vertices;"<<greedy_walk_a_best_vertices.time_stats.avg<<";"<<greedy_walk_a_best_vertices.time_stats.max<<";"<<greedy_walk_a_best_vertices.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;B;regretGC;swap_vertices;"<<greedy_walk_b_best_vertices.time_stats.avg<<";"<<greedy_walk_b_best_vertices.time_stats.max<<";"<<greedy_walk_b_best_vertices.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;A;random;swap_vertices;"<<greedy_walk_a_random_vertices.time_stats.avg<<";"<<greedy_walk_a_random_vertices.time_stats.max<<";"<<greedy_walk_a_random_vertices.time_stats.min<<"\n";
+    std::cout<<"greedy_walk;B;random;swap_vertices;"<<greedy_walk_b_random_vertices.time_stats.avg<<";"<<greedy_walk_b_random_vertices.time_stats.max<<";"<<greedy_walk_b_random_vertices.time_stats.min<<"\n";
     
-    std::cout<<"steep_walk;A;regretGC;swap_edges"<<steep_walk_a_best_edges.time_stats.avg<<";"<<steep_walk_a_best_edges.time_stats.max<<";"<<steep_walk_a_best_edges.time_stats.min<<"\n";
-    std::cout<<"steep_walk;B;regretGC;swap_edges"<<steep_walk_b_best_edges.time_stats.avg<<";"<<steep_walk_b_best_edges.time_stats.max<<";"<<steep_walk_b_best_edges.time_stats.min<<"\n";
-    std::cout<<"steep_walk;A;random;swap_edges"<<steep_walk_a_random_edges.time_stats.avg<<";"<<steep_walk_a_random_edges.time_stats.max<<";"<<steep_walk_a_random_edges.time_stats.min<<"\n";
-    std::cout<<"steep_walk;B;random;swap_edges"<<steep_walk_b_random_edges.time_stats.avg<<";"<<steep_walk_b_random_edges.time_stats.max<<";"<<steep_walk_b_random_edges.time_stats.min<<"\n";
+    std::cout<<"steep_walk;A;regretGC;swap_edges;"<<steep_walk_a_best_edges.time_stats.avg<<";"<<steep_walk_a_best_edges.time_stats.max<<";"<<steep_walk_a_best_edges.time_stats.min<<"\n";
+    std::cout<<"steep_walk;B;regretGC;swap_edges;"<<steep_walk_b_best_edges.time_stats.avg<<";"<<steep_walk_b_best_edges.time_stats.max<<";"<<steep_walk_b_best_edges.time_stats.min<<"\n";
+    std::cout<<"steep_walk;A;random;swap_edges;"<<steep_walk_a_random_edges.time_stats.avg<<";"<<steep_walk_a_random_edges.time_stats.max<<";"<<steep_walk_a_random_edges.time_stats.min<<"\n";
+    std::cout<<"steep_walk;B;random;swap_edges;"<<steep_walk_b_random_edges.time_stats.avg<<";"<<steep_walk_b_random_edges.time_stats.max<<";"<<steep_walk_b_random_edges.time_stats.min<<"\n";
 
-    std::cout<<"steep_walk;A;regretGC;swap_vertices"<<steep_walk_a_best_vertices.time_stats.avg<<";"<<steep_walk_a_best_vertices.time_stats.max<<";"<<steep_walk_a_best_vertices.time_stats.min<<"\n";
-    std::cout<<"steep_walk;B;regretGC;swap_vertices"<<steep_walk_b_best_vertices.time_stats.avg<<";"<<steep_walk_b_best_vertices.time_stats.max<<";"<<steep_walk_b_best_vertices.time_stats.min<<"\n";
-    std::cout<<"steep_walk;A;random;swap_vertices"<<steep_walk_a_random_vertices.time_stats.avg<<";"<<steep_walk_a_random_vertices.time_stats.max<<";"<<steep_walk_a_random_vertices.time_stats.min<<"\n";
-    std::cout<<"steep_walk;B;random;swap_vertices"<<steep_walk_b_random_vertices.time_stats.avg<<";"<<steep_walk_b_random_vertices.time_stats.max<<";"<<steep_walk_b_random_vertices.time_stats.min<<"\n";  
+    std::cout<<"steep_walk;A;regretGC;swap_vertices;"<<steep_walk_a_best_vertices.time_stats.avg<<";"<<steep_walk_a_best_vertices.time_stats.max<<";"<<steep_walk_a_best_vertices.time_stats.min<<"\n";
+    std::cout<<"steep_walk;B;regretGC;swap_vertices;"<<steep_walk_b_best_vertices.time_stats.avg<<";"<<steep_walk_b_best_vertices.time_stats.max<<";"<<steep_walk_b_best_vertices.time_stats.min<<"\n";
+    std::cout<<"steep_walk;A;random;swap_vertices;"<<steep_walk_a_random_vertices.time_stats.avg<<";"<<steep_walk_a_random_vertices.time_stats.max<<";"<<steep_walk_a_random_vertices.time_stats.min<<"\n";
+    std::cout<<"steep_walk;B;random;swap_vertices;"<<steep_walk_b_random_vertices.time_stats.avg<<";"<<steep_walk_b_random_vertices.time_stats.max<<";"<<steep_walk_b_random_vertices.time_stats.min<<"\n";  
 
-    std::cout<<"random_walk;A;regretGC;swap_edges"<<random_walk_a_best_edges.time_stats.avg<<";"<<random_walk_a_best_edges.time_stats.max<<";"<<random_walk_a_best_edges.time_stats.min<<"\n";
-    std::cout<<"random_walk;B;regretGC;swap_edges"<<random_walk_b_best_edges.time_stats.avg<<";"<<random_walk_b_best_edges.time_stats.max<<";"<<random_walk_b_best_edges.time_stats.min<<"\n";
-    std::cout<<"random_walk;A;random;swap_edges"<<random_walk_a_random_edges.time_stats.avg<<";"<<random_walk_a_random_edges.time_stats.max<<";"<<random_walk_a_random_edges.time_stats.min<<"\n";
-    std::cout<<"random_walk;B;random;swap_edges"<<random_walk_b_random_edges.time_stats.avg<<";"<<random_walk_b_random_edges.time_stats.max<<";"<<random_walk_b_random_edges.time_stats.min<<"\n";
+    std::cout<<"random_walk;A;regretGC;swap_edges;"<<random_walk_a_best_edges.time_stats.avg<<";"<<random_walk_a_best_edges.time_stats.max<<";"<<random_walk_a_best_edges.time_stats.min<<"\n";
+    std::cout<<"random_walk;B;regretGC;swap_edges;"<<random_walk_b_best_edges.time_stats.avg<<";"<<random_walk_b_best_edges.time_stats.max<<";"<<random_walk_b_best_edges.time_stats.min<<"\n";
+    std::cout<<"random_walk;A;random;swap_edges;"<<random_walk_a_random_edges.time_stats.avg<<";"<<random_walk_a_random_edges.time_stats.max<<";"<<random_walk_a_random_edges.time_stats.min<<"\n";
+    std::cout<<"random_walk;B;random;swap_edges;"<<random_walk_b_random_edges.time_stats.avg<<";"<<random_walk_b_random_edges.time_stats.max<<";"<<random_walk_b_random_edges.time_stats.min<<"\n";
 
-    std::cout<<"random_walk;A;regretGC;swap_vertices"<<random_walk_a_best_vertices.time_stats.avg<<";"<<random_walk_a_best_vertices.time_stats.max<<";"<<random_walk_a_best_vertices.time_stats.min<<"\n";
-    std::cout<<"random_walk;B;regretGC;swap_vertices"<<random_walk_b_best_vertices.time_stats.avg<<";"<<random_walk_b_best_vertices.time_stats.max<<";"<<random_walk_b_best_vertices.time_stats.min<<"\n";
-    std::cout<<"random_walk;A;random;swap_vertices"<<random_walk_a_random_vertices.time_stats.avg<<";"<<random_walk_a_random_vertices.time_stats.max<<";"<<random_walk_a_random_vertices.time_stats.min<<"\n";
-    std::cout<<"random_walk;B;random;swap_vertices"<<random_walk_b_random_vertices.time_stats.avg<<";"<<random_walk_b_random_vertices.time_stats.max<<";"<<random_walk_b_random_vertices.time_stats.min<<"\n";
+    std::cout<<"random_walk;A;regretGC;swap_vertices;"<<random_walk_a_best_vertices.time_stats.avg<<";"<<random_walk_a_best_vertices.time_stats.max<<";"<<random_walk_a_best_vertices.time_stats.min<<"\n";
+    std::cout<<"random_walk;B;regretGC;swap_vertices;"<<random_walk_b_best_vertices.time_stats.avg<<";"<<random_walk_b_best_vertices.time_stats.max<<";"<<random_walk_b_best_vertices.time_stats.min<<"\n";
+    std::cout<<"random_walk;A;random;swap_vertices;"<<random_walk_a_random_vertices.time_stats.avg<<";"<<random_walk_a_random_vertices.time_stats.max<<";"<<random_walk_a_random_vertices.time_stats.min<<"\n";
+    std::cout<<"random_walk;B;random;swap_vertices;"<<random_walk_b_random_vertices.time_stats.avg<<";"<<random_walk_b_random_vertices.time_stats.max<<";"<<random_walk_b_random_vertices.time_stats.min<<"\n";
     }
     //print walk scores
     if(true){
@@ -231,6 +251,36 @@ int main() {
     std::cout<<"random;A;"<<randomBaseStatsA.phaseII.avg<<";"<<randomBaseStatsA.phaseII.max<<";"<<randomBaseStatsA.phaseII.min<<"\n";
     std::cout<<"random;B;"<<randomBaseStatsB.phaseII.avg<<";"<<randomBaseStatsB.phaseII.max<<";"<<randomBaseStatsB.phaseII.min<<"\n";
 
+    saveTourToFile("best_greedy_walk_a_best_edges.txt", greedy_walk_a_best_edges.bestTour);
+    saveTourToFile("best_greedy_walk_b_best_edges.txt", greedy_walk_b_best_edges.bestTour);
+    saveTourToFile("greedy_walk_a_random_edges.txt", greedy_walk_a_random_edges.bestTour);
+    saveTourToFile("greedy_walk_b_random_edges.txt", greedy_walk_b_random_edges.bestTour);
+
+    saveTourToFile("greedy_walk_a_best_vertices.txt", greedy_walk_a_best_vertices.bestTour);
+    saveTourToFile("greedy_walk_b_best_vertices.txt", greedy_walk_b_best_vertices.bestTour);
+    saveTourToFile("greedy_walk_a_random_vertices.txt", greedy_walk_a_random_vertices.bestTour);
+    saveTourToFile("greedy_walk_b_random_vertices.txt", greedy_walk_b_random_vertices.bestTour);
+
+    saveTourToFile("steep_walk_a_best_edges.txt", steep_walk_a_best_edges.bestTour);
+    saveTourToFile("steep_walk_b_best_edges.txt", steep_walk_b_best_edges.bestTour);
+    saveTourToFile("steep_walk_a_random_edges.txt", steep_walk_a_random_edges.bestTour);
+    saveTourToFile("steep_walk_b_random_edges.txt", steep_walk_b_random_edges.bestTour);
+
+    saveTourToFile("steep_walk_a_best_vertices.txt", steep_walk_a_best_vertices.bestTour);
+    saveTourToFile("steep_walk_b_best_vertices.txt", steep_walk_b_best_vertices.bestTour);
+    saveTourToFile("steep_walk_a_random_vertices.txt", steep_walk_a_random_vertices.bestTour);
+    saveTourToFile("steep_walk_b_random_vertices.txt", steep_walk_b_random_vertices.bestTour);
+
+    saveTourToFile("random_walk_a_best_edges.txt", random_walk_a_best_edges.bestTour);
+    saveTourToFile("random_walk_b_best_edges.txt", random_walk_b_best_edges.bestTour);
+    saveTourToFile("random_walk_a_random_edges.txt", random_walk_a_random_edges.bestTour);
+    saveTourToFile("random_walk_b_random_edges.txt", random_walk_b_random_edges.bestTour);
+
+    saveTourToFile("random_walk_a_best_vertices.txt", random_walk_a_best_vertices.bestTour);
+    saveTourToFile("random_walk_b_best_vertices.txt", random_walk_b_best_vertices.bestTour);
+    saveTourToFile("random_walk_a_random_vertices.txt", random_walk_a_random_vertices.bestTour);
+    saveTourToFile("random_walk_b_random_vertices.txt", random_walk_b_random_vertices.bestTour);
+    
     
     // try {
     //     TSPInstance tspA("TSPA.csv");
