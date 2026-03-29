@@ -6,7 +6,7 @@
 #include "neighbourhood.h"
 
 using AlgoFunc = std::function<std::vector<int>(int, const TSPInstance&, bool)>;
-using AlgoFuncWalk = std::function<std::vector<int>(int, const TSPInstance&,std::vector<int>, InTourMoveType)>;
+using AlgoFuncWalk = std::function<std::vector<int>( const TSPInstance&,std::vector<int>, InTourMoveType,std::mt19937&)>;
 /**
  * double avg, 
  * int min, max
@@ -57,7 +57,7 @@ std::vector<int> weightedRegretGC(int start, const TSPInstance& tsp, bool usePro
 std::vector<int> phaseII(std::vector<int> tour, const TSPInstance& tsp);
 
 // Uruchamia algorytm ze wszystkich startów, zbiera statystyki dla fazy I i II.
-AlgoStats collectStats(AlgoFunc algo, const TSPInstance& tsp, bool useProfit);
+AlgoStats collectStats(AlgoFunc algo, const TSPInstance& tsp, bool useProfit,int n=-1);
 
 // Uruchamia losowe rozwiązanie `runs` razy, zbiera statystyki (przed i po fazie II).
 AlgoStats collectRandomStats(const TSPInstance& tsp, int runs, std::mt19937& rng);
@@ -67,11 +67,12 @@ enum class BaseSolutionType { best, random };
  * zwraca rozwiązanie bazowe ( wygenerowane przez regretGC bez uwzględniania profitów).
  * dla runs > 1, zwraca najlepsze rozwiązanie spośród `runs` uruchomień (różne starty).
  */
-std::vector<int> getBaseSolution(const TSPInstance& tsp, BaseSolutionType type, int runs = 1);
+std::pair<AlgoStats,std::vector<std::vector<int>>> getBaseSolutions(AlgoFunc algo, TSPInstance& tsp, BaseSolutionType type, int n);
+std::pair<AlgoStats,std::vector<std::vector<int>>> getBaseSolutionsRandom(const TSPInstance& tsp, int runs, std::mt19937& rng);
 
-AlgoStatsTimed collectStatsWalk(AlgoFuncWalk algo, const TSPInstance& tsp, InTourMoveType move_type, int n = -1);
+AlgoStatsTimed collectStatsWalk(AlgoFuncWalk algo, std::vector<int> base_solution,const TSPInstance& tsp, InTourMoveType move_type, int n = -1);
 AlgoStatsTimed collectRandomWalkStats(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, int runs, std::mt19937& rng,double one_run_time_limit);
 
-std::vector<int> steepestWalk(int start, const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type);
-std::vector<int> greedyWalk(int start, const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type);
-std::vector<int> randomWalk(int start, const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, double time_limit);
+std::vector<int> steepestWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng);
+std::vector<int> greedyWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng);
+std::vector<int> randomWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, double time_limit, std::mt19937& rng);

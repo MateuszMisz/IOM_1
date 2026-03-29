@@ -17,6 +17,9 @@ void Neighbour::remove(std::vector<int>& tour, const TSPInstance& tsp) {
     tour.erase(tour.begin() + first);
 }
 void Neighbour::swapVertices(std::vector<int>& tour, const TSPInstance& tsp) {
+    if(tour[first]<0 || tour[second]<0){
+        puts("problem");
+    }
     std::swap(tour[first], tour[second]);
 }
 /**
@@ -30,7 +33,7 @@ void Neighbour::swapEdges(std::vector<int>& tour, const TSPInstance& tsp) {
         std::swap(start_iter, end_iter);
     std::reverse(start_iter, end_iter);
 }
-std::vector<Neighbour> generateNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, InTourMoveType moveType) {
+std::vector<Neighbour> generateNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, InTourMoveType moveType){
     int k = tour.size();
     int n = tsp.size();
     int add_remove_neigbhours = (n-k)*(k+1)+k; // wszystkie dodania + wszystkie usunięcia
@@ -49,47 +52,6 @@ std::vector<Neighbour> generateNeighbourhood(const std::vector<int>& tour, const
     }
     return neighbours;
 }
-// std::vector<Neighbour> generateAddNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp) {
-//     std::vector<Neighbour> neighbours;
-//     std::vector<bool> inTour(tsp.size(), false);
-//     for (int v : tour) inTour[v] = true;
-
-//     int k = static_cast<int>(tour.size());
-//     for (int v = 0; v < tsp.size(); ++v) {
-//         if (inTour[v]) continue;
-//         for (int i = 0; i <= k; ++i) {
-//             neighbours.emplace_back(MoveType::Add, v, i);
-//         }
-//     }
-//     return neighbours;
-// }
-// std::vector<Neighbour> generateRemoveNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp) {
-//     std::vector<Neighbour> neighbours;
-//     int k = static_cast<int>(tour.size());
-//     for (int i = 0; i < k; ++i) {
-//         neighbours.emplace_back(MoveType::remove, i,-1);
-//     }
-//     return neighbours;
-// }
-// std::vector<Neighbour> generateSwapVerticesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp) {
-//     std::vector<Neighbour> neighbours;
-//     int k = static_cast<int>(tour.size());
-//     for (int i = 0; i < k; ++i) {
-//         for (int j = i + 1; j < k; ++j) {
-//             neighbours.emplace_back(MoveType::swap_vertices, i, j);
-//         }
-//     }
-//     return neighbours;
-// }
-// std::vector<Neighbour> generateSwapEdgesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp) {
-//     std::vector<Neighbour> neighbours;
-//     int k = static_cast<int>(tour.size());
-//     for (int i = 0; i < k; ++i) {
-//         for (int j = i + 2; j < k; ++j) { // unikamy sąsiednich krawędzi (i, i+1) oraz (k-1, 0)
-//             neighbours.emplace_back(MoveType::swap_edges, i, j);
-//         }
-//     }
-//     return neighbours;}
 void generateAddNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp,std::vector<Neighbour>& out_neighbours) {
     std::vector<bool> inTour(tsp.size(), false);
     for (int v : tour) inTour[v] = true;
@@ -119,7 +81,8 @@ void generateSwapVerticesNeighbourhood(const std::vector<int>& tour, const TSPIn
 void generateSwapEdgesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, std::vector<Neighbour>& out_neighbours) {
     int k = static_cast<int>(tour.size());
     for (int i = 0; i < k; ++i) {
-        for (int j = i + 2; j < k; ++j) { // unikamy sąsiednich krawędzi (i, i+1) oraz (k-1, 0)
+        for (int j = i + 2; j < k; ++j) { // unikamy sąsiednich krawędzi (i, i+1) oraz (k-1, 0), 
             out_neighbours.emplace_back(MoveType::swap_edges, i, j);
         }
     }
+}

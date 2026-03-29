@@ -1,10 +1,12 @@
+#pragma once
 #include<vector>
 #include "tsp.h"
 enum class MoveType {
     Add,
     remove,
     swap_vertices,
-    swap_edges
+    swap_edges,
+    empty
 };
 /**
  * klasa reprezentująca pojedynczego sąsiada.
@@ -42,12 +44,7 @@ enum class InTourMoveType {
     SwapVertices,
     SwapEdges
 };
-// std::vector<Neighbour> generateNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, InTourMoveType moveType);
-// std::vector<Neighbour> generateAddNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp);
-// std::vector<Neighbour> generateRemoveNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp);
-// std::vector<Neighbour> generateSwapVerticesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp);
-// std::vector<Neighbour> generateSwapEdgesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp);
-void generateNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, InTourMoveType moveType, std::vector<Neighbour>& out_neighbours);
+std::vector<Neighbour> generateNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, InTourMoveType moveType);
 void generateAddNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, std::vector<Neighbour>& out_neighbours);
 void generateRemoveNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, std::vector<Neighbour>& out_neighbours);
 void generateSwapVerticesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, std::vector<Neighbour>& out_neighbours);

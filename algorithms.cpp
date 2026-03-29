@@ -5,6 +5,7 @@
 #include <iostream>
 #include <chrono>
 #include "neighbourhood.h"
+#include <random>
 
 // Delta funkcji celu przy wstawieniu v między a i b:
 // delta = profit[v] + dist[a][b] - dist[a][v] - dist[v][b]
@@ -20,7 +21,7 @@ static inline int insertionDelta(int previous, int inserted, int latter,
 }
 static inline int removalDelta(int previous, int removed, int latter,
                                  const TSPInstance& tsp, bool useProfit) {
-    int d = tsp.dist[previous][latter] - tsp.dist[previous][removed] - tsp.dist[removed][latter];
+    int d = -tsp.dist[previous][latter] + tsp.dist[previous][removed] + tsp.dist[removed][latter];
     if (useProfit) d -= tsp.nodes[removed].profit;
     return d;
 }
@@ -28,10 +29,18 @@ static inline int swapVerticesDelta(int prev_1, int to_swap_1, int latter_1,
                                    int prev_2, int to_swap_2, int latter_2,
                                    const TSPInstance& tsp) {
     int d = 0;
+    if(to_swap_1 == prev_2){
+        d+=tsp.dist[prev_1][to_swap_1]+tsp.dist[to_swap_2][latter_2] - tsp.dist[prev_1][to_swap_2] - tsp.dist[to_swap_1][latter_2];
+    }
+    else if (to_swap_1 == latter_2){
+        d+=tsp.dist[prev_2][to_swap_2]+tsp.dist[to_swap_1][latter_1]  - tsp.dist[to_swap_2][latter_1] - tsp.dist[prev_2][to_swap_1];
+    }
+    else{
     // Usuwamy to_swap_1 i wstawiamy to_swap_2
     d += tsp.dist[prev_1][to_swap_1] + tsp.dist[to_swap_1][latter_1] - tsp.dist[prev_1][to_swap_2] - tsp.dist[to_swap_2][latter_1];
     // Usuwamy to_swap_2 i wstawiamy to_swap_1
     d += tsp.dist[prev_2][to_swap_2] + tsp.dist[to_swap_2][latter_2] - tsp.dist[prev_2][to_swap_1] - tsp.dist[to_swap_1][latter_2];
+    }
     return d;
 }
 
@@ -282,29 +291,75 @@ std::vector<int> phaseII(std::vector<int> tour, const TSPInstance& tsp) {
     return tour;
 }
 
-std::vector<int> getBaseSolution(const TSPInstance& tsp, BaseSolutionType type, int runs = 1) {
-    AlgoStats stats;
-    switch(type) {
-        case BaseSolutionType::best:
-            stats = collectStats(regretGC, tsp, false, runs);
-            break;
-        case BaseSolutionType::random: {
-            std::mt19937 rng(69);
-            stats = collectRandomStats(tsp, runs, rng);
+std::pair<AlgoStats,std::vector<std::vector<int>>> getBaseSolutions(AlgoFunc algo, TSPInstance& tsp, BaseSolutionType type, int n) {
+    if (n == -1) n = tsp.size();
+
+    Stats s1{ 0.0, INT_MAX, INT_MIN };
+    Stats s2{ 0.0, INT_MAX, INT_MIN };
+    std::vector<int> bestTour;
+    std::vector<std::vector<int>> solutions;
+    int bestScore = INT_MIN;
+    int bestScore1 = INT_MIN;
+    std::vector<int> bestTour1;
+    for (int s = 0; s < n; ++s) {
+        auto tour    = algo(s, tsp, true);
+        solutions.push_back(tour);
+        int  score1  = tsp.evaluate(tour);
+        //dodanie statystyk długości trasy po fazie I
+        // int length1 = tsp.evaluate_distance(tour);
+        // s1_len.avg += length1;
+        // s1_len.min  = std::min(s1_len.min, length1);
+        // s1_len.max  = std::max(s1_len.max, length1);
+        if(score1 > bestScore1) {
+            bestScore1 = score1;
+            bestTour1 = tour;
+        }
+        // if (tour.size() < 2){
+        //     std::cout<< "Warning: tour size = " << tour.size() << " for start = " << s << "\n";
+        // }  // nie ma fazy II dla 0/1 wierzchołka
+        //koniec dodatku
+        s1.avg += score1;
+        s1.min  = std::min(s1.min, score1);
+        s1.max  = std::max(s1.max, score1);
+
+        tour         = phaseII(tour, tsp);
+        int  score2  = tsp.evaluate(tour);
+        s2.avg += score2;
+        s2.min  = std::min(s2.min, score2);
+        s2.max  = std::max(s2.max, score2);
+
+        if (score2 > bestScore) {
+            bestScore = score2;
+            bestTour  = tour;
         }
     }
-    return stats.bestTour;
+
+    s1.avg /= n;
+    s2.avg /= n;
+    // spushowanie statystyk długości trasy po fazie I oraz najlepszego rozwiązania po fazie I(bo nie ma ich w oryginale)
+    // s1_len.avg /= n;
+    // if(useA) {
+    //     phaseIA_length.push_back({s1_len, s1_len, bestTour1});
+    // } else {
+    //     phaseIB_length.push_back({s1_len, s1_len, bestTour1});
+    // }
+    return std::make_pair(AlgoStats{ s1, s2, bestTour }, solutions);
+
 }
-AlgoStatsTimed collectStatsWalk(AlgoFuncWalk algo, std::vector<int> base_solution,const TSPInstance& tsp, InTourMoveType move_type, int n = -1) {
+AlgoStatsTimed collectStatsWalk(AlgoFuncWalk algo, std::vector<int> base_solution,const TSPInstance& tsp, InTourMoveType move_type, int n) {
     if (n == -1) n = tsp.size();
     
     Stats score_stats{ 0.0, INT_MAX, INT_MIN };
     TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
     std::vector<int> bestTour;
+    std::mt19937 rng(69);
     int bestScore = INT_MIN;
+    
     for (int s = 0; s < n; ++s) {
+        // printf(" %d/%d\n", s+1, n);
         auto start_time = std::chrono::high_resolution_clock::now();
-        auto tour    = algo(s, tsp, base_solution, move_type);
+        auto tour    = algo( tsp, base_solution, move_type, rng);
+        
         auto end_time = std::chrono::high_resolution_clock::now();
         long long duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
@@ -327,7 +382,55 @@ AlgoStatsTimed collectStatsWalk(AlgoFuncWalk algo, std::vector<int> base_solutio
     return { time_stats, score_stats, bestTour };
 }
 
-AlgoStats collectStats(AlgoFunc algo, const TSPInstance& tsp, bool useProfit, int n = -1) {
+std::pair<AlgoStats,std::vector<std::vector<int>>> getBaseSolutionsRandom(const TSPInstance& tsp, int runs, std::mt19937& rng) {
+    Stats s1{ 0.0, INT_MAX, INT_MIN };
+    Stats s2{ 0.0, INT_MAX, INT_MIN };
+    // Stats s1_len{ 0.0, INT_MAX, INT_MIN };
+    int bestScore1 = INT_MIN;
+    std::vector<std::vector<int>> solutions;
+    std::vector<int> bestTour;
+    int bestScore = INT_MIN;
+    std::vector<int> bestTour1;
+
+    for (int i = 0; i < runs; ++i) {
+        auto tour   = randomSolution(tsp.size(), rng);
+        solutions.push_back(tour);
+        int  score1 = tsp.evaluate(tour);
+        // int length1 = tsp.evaluate_distance(tour);
+        // s1_len.avg += length1;
+        // s1_len.min  = std::min(s1_len.min, length1);
+        // s1_len.max  = std::max(s1_len.max, length1);
+        if(score1 > bestScore1) {
+            bestScore1 = score1;
+            bestTour1 = tour;
+        }
+        s1.avg += score1;
+        s1.min  = std::min(s1.min, score1);
+        s1.max  = std::max(s1.max, score1);
+
+        tour    = phaseII(tour, tsp);
+        int  score2 = tsp.evaluate(tour);
+        s2.avg += score2;
+        s2.min  = std::min(s2.min, score2);
+        s2.max  = std::max(s2.max, score2);
+
+        if (score2 > bestScore) {
+            bestScore = score2;
+            bestTour  = tour;
+        }
+    }
+    // s1_len.avg/= runs;
+    //     if(useA) {
+    //     phaseIA_length.push_back({s1_len, s1_len, bestTour1});
+    // } else {
+    //     phaseIB_length.push_back({s1_len, s1_len, bestTour1});
+    // }
+    s1.avg /= runs;
+    s2.avg /= runs;
+    return std::make_pair(AlgoStats{ s1, s2, bestTour }, solutions);
+}
+
+AlgoStats collectStats(AlgoFunc algo, const TSPInstance& tsp, bool useProfit, int n) {
     if (n == -1) n = tsp.size();
 
     Stats s1{ 0.0, INT_MAX, INT_MIN };
@@ -431,10 +534,13 @@ AlgoStatsTimed collectRandomWalkStats(const TSPInstance& tsp, std::vector<int> b
     Stats score_stats{ 0.0, INT_MAX, INT_MIN };
     TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
     std::vector<int> bestTour;
+    std::uniform_int_distribution<int> dist(0, static_cast<int>(3*runs));
+
     int bestScore = INT_MIN;
     for (int i = 0; i < runs; ++i) {
+        // std::cout<<"new run";
         auto start_time = std::chrono::high_resolution_clock::now();
-        auto tour   = randomWalk(i, tsp, base_solution, move_type, one_run_time_limit);
+        auto tour   = randomWalk(tsp, base_solution, move_type, one_run_time_limit, rng);
         auto end_time = std::chrono::high_resolution_clock::now();
         long long duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
@@ -458,15 +564,23 @@ AlgoStatsTimed collectRandomWalkStats(const TSPInstance& tsp, std::vector<int> b
 }
 int transformation_delta(const Neighbour& neighbor,std::vector<int>& tour, const TSPInstance& tsp) {
     int delta = 0;
+    // if( neighbor.type == MoveType::empty) {
+    //     puts("problem");
+    // }
     int k= static_cast<int>(tour.size());
     switch(neighbor.type) {
             case MoveType::Add:
-                delta = insertionDelta(tour[(neighbor.second-1+k)% k],tour[neighbor.first],tour[neighbor.second], tsp, true);
+                // if(neighbor.first<0||neighbor.second<0 || neighbor.first >70000 || neighbor.second >70000 ||tour[(neighbor.second+k)%k] >70000 || tour[(neighbor.second-1+k)% k] >70000)
+                //     puts("problem");
+                delta = insertionDelta(tour[(neighbor.second-1+k)% k],neighbor.first,tour[(neighbor.second+k)%k], tsp, true);
                 break;
             case MoveType::remove:
                 delta = removalDelta(tour[(neighbor.first-1+k)% k],tour[neighbor.first],tour[(neighbor.first + 1+k)% k], tsp, true);
                 break;
             case MoveType::swap_vertices:
+                // if ( tour[(neighbor.first-1+k)%k]<0|| tour[neighbor.first]<0 || tour[(neighbor.first + 1+k)%k]<0 || tour[(neighbor.second-1+k)%k]<0 || tour[neighbor.second]<0 || tour[(neighbor.second + 1+k)%k]<0) {
+                //     puts("stop");
+                // }
                 delta = swapVerticesDelta(tour[(neighbor.first-1+k)% k], tour[neighbor.first], tour[(neighbor.first + 1+k)% k],tour[(neighbor.second-1+k)% k],tour[neighbor.second],tour[(neighbor.second + 1+k)% k], tsp);
                 break;
             case MoveType::swap_edges:
@@ -475,12 +589,11 @@ int transformation_delta(const Neighbour& neighbor,std::vector<int>& tour, const
             }
     return delta;
 }
-std::vector<int> randomWalk(int start, const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, double time_limit) {
+std::vector<int> randomWalk( const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, double time_limit,std::mt19937& rng) {
     std::vector<int> tour = base_solution;
     std::vector<int> bestTour = tour;
     int bestScore= tsp.evaluate(tour);
     int score = bestScore;
-    std::mt19937 rng(69);
     int delta = 0;
     double elapsed_time = 0.0;
     auto walk_start_time = std::chrono::high_resolution_clock::now();
@@ -503,34 +616,99 @@ std::vector<int> randomWalk(int start, const TSPInstance& tsp, std::vector<int> 
             bestScore = score;
         }
         auto now = std::chrono::high_resolution_clock::now();
-        elapsed_time = std::chrono::duration_cast<std::chrono::duration<double>>(now - walk_start_time).count();
+        elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(now - walk_start_time).count();
     }
     return bestTour;
 }
-std::vector<int> steepestWalk(int start, const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type){
+std::string moveTypeToString(MoveType type) {
+    switch (type) {
+        case MoveType::Add:           return "Add";
+        case MoveType::remove:        return "Remove";
+        case MoveType::swap_vertices: return "SwapVertices";
+        case MoveType::swap_edges:    return "SwapEdges";
+        case MoveType::empty:         return "None";
+        default:                      return "Unknown";
+    }
+}
+std::vector<int> steepestWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng) {
     std::vector<int> tour = base_solution;
-    int bestScore = tsp.evaluate(tour);
     bool improved = true;
-    int score = bestScore;
-    Neighbour bestNeighbor = Neighbour(MoveType::Add, -1, -1);
-    while(improved) {
-
+    std::vector<Neighbour> used_neibhbors;
+    while(improved){
         improved = false;
         std::vector<Neighbour> neighbors = generateNeighbourhood(tour, tsp, move_type);
-        for(const Neighbour& neighbor : neighbors) {
+        std::cout<<"Generated " << neighbors.size() << " neighbors\n";
+        int bestDelta = 0;
+        Neighbour bestNeighbor = Neighbour(MoveType::empty, -1, -1);
+        for(Neighbour& neighbor : neighbors) {
             int delta = transformation_delta(neighbor, tour, tsp);
-            if(delta > 0 && delta + score > bestScore) {
+            std::vector<int> tour_dbg = tour; // tworzymy kopię trasy, aby przetestować transformację
+            neighbor.transform(tour_dbg, tsp); // testujemy transformację na kopii trasy
+
+            // if (neighbor.second ==tour.size() -1){
+            //     puts("stop");
+            // }
+            int delta_dbg = tsp.evaluate(tour_dbg) - tsp.evaluate(tour); // obliczamy delta na podstawie oceny trasy po transformacji
+            if(delta!= delta_dbg) {
+                
+                std::cout << "Delta mismatch! Calculated: " << delta << ", Evaluated: " << delta_dbg << "\n";
+                std::cout<< "Neighbor type: " << moveTypeToString(neighbor.type) << ", first: " << neighbor.first << ", second: " << neighbor.second << "\n";
+                std::cout<< "delta: " <<delta<< "real delta: " << delta_dbg << "\n";
+            }
+            if(delta > bestDelta) {
+                // if (neighbor.type == MoveType::empty) {
+                //     puts("null zwraca delta" );
+                // }
+                bestDelta = delta;
                 bestNeighbor = neighbor;
-                bestScore = delta + score;
-                improved = true;
             }
         }
-        if(improved) {
+        if (bestNeighbor.type != MoveType::empty && bestDelta > 0) {
             bestNeighbor.transform(tour, tsp);
-            score = bestScore;
-            bestNeighbor = Neighbour(MoveType::Add, -1, -1);
+            used_neibhbors.push_back(bestNeighbor);
+            improved = true;
+
         }
+        if(tsp.evaluate(tour) == -5240){
+            std::cout<<"best neighbor: first: " << bestNeighbor.first << ", second: " << bestNeighbor.second << ", type: " << moveTypeToString(bestNeighbor.type) << "\n";
+            std::cout<<"tour[first]: " << tour[bestNeighbor.first] << ", tour[second]: " << tour[bestNeighbor.second] << "\n";
+        }
+        std::cout << (improved ? "Yes" : "No") << " " << moveTypeToString(bestNeighbor.type) << " score: " << tsp.evaluate(tour) << "\n";
+        // std::cout<<(improved?"Yes":"No") << " " << moveTypeToString(bestNeighbor.type)<< " score:" << tsp.evaluate(tour) << "\n";
     }
     return tour;
 }
 
+std::vector<int> greedyWalk( const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng) {
+    std::vector<int> tour = base_solution;
+    bool improved = true;
+    int score = tsp.evaluate(tour);
+    int counter = 0;
+    MoveType lastMoveType_dbg = MoveType::empty;
+    while(improved) {
+        // if (counter++%1000 == 0) {
+        //     std::cout << counter<<"Current score: " << score << ", tour size: " << tour.size() << "\n";
+        // }
+        improved = false;
+        std::vector<Neighbour> neighbors = generateNeighbourhood(tour, tsp, move_type);
+        
+        std::shuffle(neighbors.begin(), neighbors.end(), rng); // losowa kolejność sąsiadów
+        
+        for(Neighbour& neighbor : neighbors) {
+            int delta = transformation_delta(neighbor, tour, tsp);
+            lastMoveType_dbg = neighbor.type;
+            if(delta > 0 ) {
+                // if (neighbor.type == MoveType::Add || neighbor.type == MoveType::remove)
+                //     puts("add/remove zwraca delta");
+                neighbor.transform(tour, tsp);
+                
+                score += delta;
+                improved = true;
+                
+                break; // wybieramy pierwszego sąsiada przynoszącego poprawę
+            }
+        }
+        // std::cout << (improved ? "Yes" : "No") << " " << moveTypeToString(lastMoveType_dbg) << " score: " << score << "\n";
+    }
+    return tour;
+}
