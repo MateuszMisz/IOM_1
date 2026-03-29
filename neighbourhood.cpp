@@ -1,7 +1,7 @@
 #include "neighbourhood.h"
 #include <algorithm>
-
-
+#include <random>
+#include <iostream>
 void Neighbour::transform(std::vector<int>& tour, const TSPInstance& tsp) {
     switch (type) {
         case MoveType::Add:           add(tour, tsp); break;
@@ -84,5 +84,41 @@ void generateSwapEdgesNeighbourhood(const std::vector<int>& tour, const TSPInsta
         for (int j = i + 2; j < k; ++j) { // unikamy sąsiednich krawędzi (i, i+1) oraz (k-1, 0), 
             out_neighbours.emplace_back(MoveType::swap_edges, i, j);
         }
+    }
+}
+Neighbour generateRandomNeigbour(const std::vector<int>& tour, const TSPInstance& tsp,std::mt19937& rng){
+    std::uniform_int_distribution<int> moveTypeDist(0, 3);
+    MoveType moveType = static_cast<MoveType>(moveTypeDist(rng));
+    int n = tsp.size();
+    int k = tour.size();
+
+    switch(moveType){
+        case MoveType::Add:{
+            std::uniform_int_distribution<int> n_dist(0,n-1);
+            std::uniform_int_distribution<int> pos_dist(0,k);
+            return Neighbour(MoveType::Add, n_dist(rng), pos_dist(rng));}
+
+        case MoveType::remove:{
+            std::uniform_int_distribution<int> remove_pos_dist(0,k-1);
+            return Neighbour(MoveType::remove, remove_pos_dist(rng), -1);}
+        case MoveType::swap_vertices:{
+            std::uniform_int_distribution<int> swap_v_dist(0,k-1);
+            int first = swap_v_dist(rng);
+            int second = swap_v_dist(rng); 
+            while(second == first){
+                second = swap_v_dist(rng);
+            }
+            if(first > second) std::swap(first, second);
+            return Neighbour(MoveType::swap_vertices, first, second);}
+        case MoveType::swap_edges:{
+            std::uniform_int_distribution<int> swap_e_dist(0,k-1);
+            int first_edge = swap_e_dist(rng);
+            int second_edge = swap_e_dist(rng);
+            while(second_edge == first_edge || second_edge == (first_edge + 1) %k)
+                second_edge = swap_e_dist(rng);
+            if(first_edge > second_edge) std::swap(first_edge, second_edge);
+            return Neighbour(MoveType::swap_edges, first_edge, second_edge);}
+        case MoveType::empty:
+            throw std::runtime_error("Generated empty move type in generateRandomNeighbour");
     }
 }

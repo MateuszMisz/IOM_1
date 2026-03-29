@@ -65,7 +65,17 @@ static void printInstanceSummary(const TSPInstance& tsp) {
     std::cout << "\n";
 }
 
-void printWalkStatRow(AlgoStatsTimed stats, std::string prefix){
+void updateTimeStats(AlgoStatsTimed& out_stats, AlgoStatsTimed new_stats,int runs) {
+    if(out_stats.score_stats.max< new_stats.score_stats.max) {
+        out_stats.bestTour = new_stats.bestTour;
+    }
+    out_stats.time_stats.avg += new_stats.time_stats.avg/runs;
+    out_stats.time_stats.min = std::min(out_stats.time_stats.min, new_stats.time_stats.min);
+    out_stats.time_stats.max = std::max(out_stats.time_stats.max, new_stats.time_stats.max);
+
+    out_stats.score_stats.avg += new_stats.score_stats.avg/runs;
+    out_stats.score_stats.min = std::min(out_stats.score_stats.min, new_stats.score_stats.min);
+    out_stats.score_stats.max = std::max(out_stats.score_stats.max, new_stats.score_stats.max);
 
 
 }
@@ -118,42 +128,35 @@ int main() {
     AlgoStatsTimed random_walk_b_random_vertices ;
     for (int i = 0 ; i < runs; i++){
         std::cout<<"Run "<<i+1<<"/"<<runs<<"\n";
-        AlgoStatsTimed greedy_walk_a_best_edges = collectStatsWalk(greedyWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1);
-        AlgoStatsTimed greedy_walk_b_best_edges = collectStatsWalk(greedyWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1);
-        AlgoStatsTimed greedy_walk_a_random_edges = collectStatsWalk(greedyWalk, randomBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1);
-        AlgoStatsTimed greedy_walk_b_random_edges = collectStatsWalk(greedyWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1);
+        updateTimeStats(greedy_walk_a_best_edges, collectStatsWalk(greedyWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1),runs);
+        updateTimeStats(greedy_walk_b_best_edges, collectStatsWalk(greedyWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1),runs);
+        updateTimeStats(greedy_walk_a_random_edges, collectStatsWalk(greedyWalk, randomBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1),runs);
+        updateTimeStats(greedy_walk_b_random_edges, collectStatsWalk(greedyWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1),runs);
 
-        AlgoStatsTimed greedy_walk_a_best_vertices = collectStatsWalk(greedyWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1);
-        AlgoStatsTimed greedy_walk_b_best_vertices = collectStatsWalk(greedyWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1);
-        AlgoStatsTimed greedy_walk_a_random_vertices = collectStatsWalk(greedyWalk, randomBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1);
-        AlgoStatsTimed greedy_walk_b_random_vertices = collectStatsWalk(greedyWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1);
+        updateTimeStats(greedy_walk_a_best_vertices, collectStatsWalk(greedyWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1),runs);
+        updateTimeStats(greedy_walk_b_best_vertices, collectStatsWalk(greedyWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1),runs);
+        updateTimeStats(greedy_walk_a_random_vertices, collectStatsWalk(greedyWalk, randomBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1),runs);
+        updateTimeStats(greedy_walk_b_random_vertices, collectStatsWalk(greedyWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1),runs);
         std::cout<<"greedy walks done\n";
-        AlgoStatsTimed steep_walk_a_best_edges = collectStatsWalk(steepestWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1);
-        std::cout<<"steep1 done\n";
-        AlgoStatsTimed steep_walk_b_best_edges = collectStatsWalk(steepestWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1);
-        std::cout<<"steep2 done\n";
-        AlgoStatsTimed steep_walk_a_random_edges = collectStatsWalk(steepestWalk, randomBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1);
-        std::cout<<"steep3 done\n";
-        AlgoStatsTimed steep_walk_b_random_edges = collectStatsWalk(steepestWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1);
-        std::cout<<"steep4 done\n";
+        updateTimeStats(steep_walk_a_best_edges, collectStatsWalk(steepestWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1),runs);
+        updateTimeStats(steep_walk_b_best_edges, collectStatsWalk(steepestWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1),runs);
+        updateTimeStats(steep_walk_a_random_edges, collectStatsWalk(steepestWalk, randomBaseSolutionsA[i], tspA, InTourMoveType::SwapEdges, 1),runs);
+        updateTimeStats(steep_walk_b_random_edges, collectStatsWalk(steepestWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapEdges, 1),runs);
 
-        AlgoStatsTimed steep_walk_a_best_vertices = collectStatsWalk(steepestWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1);
-        std::cout<<"steep5 done\n";
-        AlgoStatsTimed steep_walk_b_best_vertices = collectStatsWalk(steepestWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1);
-        std::cout<<"steep6 done\n";
-        AlgoStatsTimed steep_walk_a_random_vertices = collectStatsWalk(steepestWalk,    randomBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1);
-        std::cout<<"steep7 done\n";
-        AlgoStatsTimed steep_walk_b_random_vertices = collectStatsWalk(steepestWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1);
-        std::cout<<"steep walks done\n";
-        AlgoStatsTimed random_walk_a_best_edges = collectRandomWalkStats(tspA,bestBaseSolutionsA[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_a_best_edges.time_stats.avg,steep_walk_a_best_edges.time_stats.avg));
-        AlgoStatsTimed random_walk_b_best_edges = collectRandomWalkStats(tspB,bestBaseSolutionsB[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_b_best_edges.time_stats.avg,steep_walk_b_best_edges.time_stats.avg));
-        AlgoStatsTimed random_walk_a_random_edges = collectRandomWalkStats(tspA,randomBaseSolutionsA[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_a_random_edges.time_stats.avg,steep_walk_a_random_edges.time_stats.avg));
-        AlgoStatsTimed random_walk_b_random_edges = collectRandomWalkStats(tspB,randomBaseSolutionsB[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_b_random_edges.time_stats.avg,steep_walk_b_random_edges.time_stats.avg));
+        updateTimeStats(steep_walk_a_best_vertices, collectStatsWalk(steepestWalk, bestBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1),runs);
+        updateTimeStats(steep_walk_b_best_vertices, collectStatsWalk(steepestWalk, bestBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1),runs);
+        updateTimeStats(steep_walk_a_random_vertices, collectStatsWalk(steepestWalk, randomBaseSolutionsA[i], tspA, InTourMoveType::SwapVertices, 1),runs);
+        updateTimeStats(steep_walk_b_random_vertices, collectStatsWalk(steepestWalk, randomBaseSolutionsB[i], tspB, InTourMoveType::SwapVertices, 1),runs);
+        std::cout<<"steepest walks done\n";
+        updateTimeStats(random_walk_a_best_edges, collectRandomWalkStats(tspA,bestBaseSolutionsA[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_a_best_edges.time_stats.avg,steep_walk_a_best_edges.time_stats.avg)),runs);
+        updateTimeStats(random_walk_b_best_edges, collectRandomWalkStats(tspB,bestBaseSolutionsB[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_b_best_edges.time_stats.avg,steep_walk_b_best_edges.time_stats.avg)),runs);
+        updateTimeStats(random_walk_a_random_edges, collectRandomWalkStats(tspA,randomBaseSolutionsA[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_a_random_edges.time_stats.avg,steep_walk_a_random_edges.time_stats.avg)),runs);
+        updateTimeStats(random_walk_b_random_edges, collectRandomWalkStats(tspB,randomBaseSolutionsB[i], InTourMoveType::SwapEdges, 1,rng,std::max(greedy_walk_b_random_edges.time_stats.avg,steep_walk_b_random_edges.time_stats.avg)),runs);
 
-        AlgoStatsTimed random_walk_a_best_vertices = collectRandomWalkStats(tspA,bestBaseSolutionsA[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_a_best_vertices.time_stats.avg,steep_walk_a_best_vertices.time_stats.avg));
-        AlgoStatsTimed random_walk_b_best_vertices = collectRandomWalkStats(tspB,bestBaseSolutionsB[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_b_best_vertices.time_stats.avg,steep_walk_b_best_vertices.time_stats.avg));
-        AlgoStatsTimed random_walk_a_random_vertices = collectRandomWalkStats(tspA,randomBaseSolutionsA[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_a_random_vertices.time_stats.avg,steep_walk_a_random_vertices.time_stats.avg));
-        AlgoStatsTimed random_walk_b_random_vertices = collectRandomWalkStats(tspB,randomBaseSolutionsB[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_b_random_vertices.time_stats.avg,steep_walk_b_random_vertices.time_stats.avg));
+        updateTimeStats(random_walk_a_best_vertices, collectRandomWalkStats(tspA,bestBaseSolutionsA[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_a_best_vertices.time_stats.avg,steep_walk_a_best_vertices.time_stats.avg)),runs);
+        updateTimeStats(random_walk_b_best_vertices, collectRandomWalkStats(tspB,bestBaseSolutionsB[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_b_best_vertices.time_stats.avg,steep_walk_b_best_vertices.time_stats.avg)),runs);
+        updateTimeStats(random_walk_a_random_vertices, collectRandomWalkStats(tspA,randomBaseSolutionsA[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_a_random_vertices.time_stats.avg,steep_walk_a_random_vertices.time_stats.avg)),runs);
+        updateTimeStats(random_walk_b_random_vertices, collectRandomWalkStats(tspB,randomBaseSolutionsB[i], InTourMoveType::SwapVertices, 1,rng,std::max(greedy_walk_b_random_vertices.time_stats.avg,steep_walk_b_random_vertices.time_stats.avg)),runs);
     }
     
     //print walk times 

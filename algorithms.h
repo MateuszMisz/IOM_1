@@ -4,6 +4,7 @@
 #include <random>
 #include <functional>
 #include "neighbourhood.h"
+#include <climits>
 
 using AlgoFunc = std::function<std::vector<int>(int, const TSPInstance&, bool)>;
 using AlgoFuncWalk = std::function<std::vector<int>( const TSPInstance&,std::vector<int>, InTourMoveType,std::mt19937&)>;
@@ -44,6 +45,7 @@ struct AlgoStatsTimed {
     TimeStats time_stats;
     Stats score_stats;// wyniki po fazie I (pełny cykl Hamiltona)
     std::vector<int> bestTour;  // najlepsze rozwiązanie końcowe
+    AlgoStatsTimed(): time_stats({0.0, LLONG_MAX, LLONG_MIN}), score_stats({0.0, INT_MAX, INT_MIN}), bestTour({}) {}
 };
 
 std::vector<int> randomSolution(int n, std::mt19937& rng);
@@ -76,3 +78,4 @@ AlgoStatsTimed collectRandomWalkStats(const TSPInstance& tsp, std::vector<int> b
 std::vector<int> steepestWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng);
 std::vector<int> greedyWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng);
 std::vector<int> randomWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, double time_limit, std::mt19937& rng);
+Neighbour generateRandomNeigbour(const std::vector<int>& tour, const TSPInstance& tsp,std::mt19937& rng);

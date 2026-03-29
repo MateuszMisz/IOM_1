@@ -379,7 +379,11 @@ AlgoStatsTimed collectStatsWalk(AlgoFuncWalk algo, std::vector<int> base_solutio
 
     score_stats.avg /= n;
     time_stats.avg /= n;
-    return { time_stats, score_stats, bestTour };
+    AlgoStatsTimed result;
+    result.time_stats = time_stats;
+    result.score_stats = score_stats;
+    result.bestTour = bestTour;
+    return result;
 }
 
 std::pair<AlgoStats,std::vector<std::vector<int>>> getBaseSolutionsRandom(const TSPInstance& tsp, int runs, std::mt19937& rng) {
@@ -559,7 +563,11 @@ AlgoStatsTimed collectRandomWalkStats(const TSPInstance& tsp, std::vector<int> b
     }
     score_stats.avg /= runs;
     time_stats.avg /= runs;
-    return { time_stats, score_stats, bestTour };
+    AlgoStatsTimed result;
+    result.time_stats = time_stats;
+    result.score_stats = score_stats;
+    result.bestTour = bestTour;
+    return result;
 
 }
 int transformation_delta(const Neighbour& neighbor,std::vector<int>& tour, const TSPInstance& tsp) {
@@ -581,7 +589,10 @@ int transformation_delta(const Neighbour& neighbor,std::vector<int>& tour, const
                 // if ( tour[(neighbor.first-1+k)%k]<0|| tour[neighbor.first]<0 || tour[(neighbor.first + 1+k)%k]<0 || tour[(neighbor.second-1+k)%k]<0 || tour[neighbor.second]<0 || tour[(neighbor.second + 1+k)%k]<0) {
                 //     puts("stop");
                 // }
-                delta = swapVerticesDelta(tour[(neighbor.first-1+k)% k], tour[neighbor.first], tour[(neighbor.first + 1+k)% k],tour[(neighbor.second-1+k)% k],tour[neighbor.second],tour[(neighbor.second + 1+k)% k], tsp);
+                if(tour.size()<=2)
+                    delta = 0;
+                else
+                    delta = swapVerticesDelta(tour[(neighbor.first-1+k)% k], tour[neighbor.first], tour[(neighbor.first + 1+k)% k],tour[(neighbor.second-1+k)% k],tour[neighbor.second],tour[(neighbor.second + 1+k)% k], tsp);
                 break;
             case MoveType::swap_edges:
                 delta = swapEdgesDelta(tour[neighbor.first], tour[(neighbor.first + 1+k)% k], tour[neighbor.second], tour[(neighbor.second + 1+k)% k], tsp);
@@ -633,29 +644,44 @@ std::string moveTypeToString(MoveType type) {
 std::vector<int> steepestWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng) {
     std::vector<int> tour = base_solution;
     bool improved = true;
-    std::vector<Neighbour> used_neibhbors;
+    // std::vector<Neighbour> used_neibhbors;
     while(improved){
         improved = false;
         std::vector<Neighbour> neighbors = generateNeighbourhood(tour, tsp, move_type);
-        std::cout<<"Generated " << neighbors.size() << " neighbors\n";
+        // std::cout<<"Generated " << neighbors.size() << " neighbors\n";
         int bestDelta = 0;
         Neighbour bestNeighbor = Neighbour(MoveType::empty, -1, -1);
         for(Neighbour& neighbor : neighbors) {
             int delta = transformation_delta(neighbor, tour, tsp);
-            std::vector<int> tour_dbg = tour; // tworzymy kopię trasy, aby przetestować transformację
-            neighbor.transform(tour_dbg, tsp); // testujemy transformację na kopii trasy
+            // std::vector<int> tour_dbg = tour; // tworzymy kopię trasy, aby przetestować transformację
+            // neighbor.transform(tour_dbg, tsp); // testujemy transformację na kopii trasy
 
             // if (neighbor.second ==tour.size() -1){
             //     puts("stop");
             // }
-            int delta_dbg = tsp.evaluate(tour_dbg) - tsp.evaluate(tour); // obliczamy delta na podstawie oceny trasy po transformacji
-            if(delta!= delta_dbg) {
+            // int delta_dbg = tsp.evaluate(tour_dbg) - tsp.evaluate(tour); // obliczamy delta na podstawie oceny trasy po transformacji
+            // if(delta!= delta_dbg) {
                 
-                std::cout << "Delta mismatch! Calculated: " << delta << ", Evaluated: " << delta_dbg << "\n";
-                std::cout<< "Neighbor type: " << moveTypeToString(neighbor.type) << ", first: " << neighbor.first << ", second: " << neighbor.second << "\n";
-                std::cout<< "delta: " <<delta<< "real delta: " << delta_dbg << "\n";
-            }
+            //     std::cout << "Delta mismatch! Calculated: " << delta << ", Evaluated: " << delta_dbg << "\n";
+            //     std::cout<< "Neighbor type: " << moveTypeToString(neighbor.type) << ", first: " << neighbor.first << ", second: " << neighbor.second << "\n";
+            //     std::cout<< "delta: " <<delta<< "real delta: " << delta_dbg << "\n";
+            // }
             if(delta > bestDelta) {
+            //     std::vector<int> tour_dbg = tour; // tworzymy kopię trasy, aby przetestować transformację
+            //     neighbor.transform(tour_dbg, tsp); // testujemy transformację na kopii trasy
+            //     int delta_dbg = tsp.evaluate(tour_dbg) - tsp.evaluate(tour); // obliczamy delta na podstawie oceny trasy po transformacji
+
+            //     if(delta!= delta_dbg) {
+                
+            //     std::cout << "Delta mismatch! Calculated: " << delta << ", Evaluated: " << delta_dbg << "\n";
+            //     std::cout<< "Neighbor type: " << moveTypeToString(neighbor.type) << ", first: " << neighbor.first << ", second: " << neighbor.second << "\n";
+            //     std::cout<< "delta: " <<delta<< "real delta: " << delta_dbg << "\n";
+            //     std::cout<<"tour0: " << tour[neighbor.first] << ", tour1: " << tour[neighbor.second] << "\n";
+            //     std::cout<<"tour_dbg0: " << tour_dbg[neighbor.first] << ", tour_dbg1: " << tour_dbg[neighbor.second] << "\n";
+            //     std::cout<<"tsp.dist[last][0]: " << tsp.dist[tour[(neighbor.first-1+tour.size())% tour.size()]][tour[neighbor.first]] << ", tsp.dist[1][2]: " << tsp.dist[tour[neighbor.second]][tour[(neighbor.second + 1+tour.size())% tour.size()]] << "\n";
+            //     std::cout<<"tsp.dist[last][1]: " << tsp.dist[tour[(neighbor.first-1+tour.size())% tour.size()]][tour[neighbor.second]] << ", tsp.dist[0][2]: " << tsp.dist[tour[neighbor.first]][tour[(neighbor.second + 1+tour.size())% tour.size()]] << "\n";
+            //     std::cout<<"toursize:" << tour.size() << "\n";
+            // }
                 // if (neighbor.type == MoveType::empty) {
                 //     puts("null zwraca delta" );
                 // }
@@ -665,15 +691,15 @@ std::vector<int> steepestWalk(const TSPInstance& tsp, std::vector<int> base_solu
         }
         if (bestNeighbor.type != MoveType::empty && bestDelta > 0) {
             bestNeighbor.transform(tour, tsp);
-            used_neibhbors.push_back(bestNeighbor);
+            // used_neibhbors.push_back(bestNeighbor);
             improved = true;
 
         }
-        if(tsp.evaluate(tour) == -5240){
-            std::cout<<"best neighbor: first: " << bestNeighbor.first << ", second: " << bestNeighbor.second << ", type: " << moveTypeToString(bestNeighbor.type) << "\n";
-            std::cout<<"tour[first]: " << tour[bestNeighbor.first] << ", tour[second]: " << tour[bestNeighbor.second] << "\n";
-        }
-        std::cout << (improved ? "Yes" : "No") << " " << moveTypeToString(bestNeighbor.type) << " score: " << tsp.evaluate(tour) << "\n";
+        // if(tsp.evaluate(tour) == -5240){
+        //     std::cout<<"best neighbor: first: " << bestNeighbor.first << ", second: " << bestNeighbor.second << ", type: " << moveTypeToString(bestNeighbor.type) << "\n";
+        //     std::cout<<"tour[first]: " << tour[bestNeighbor.first] << ", tour[second]: " << tour[bestNeighbor.second] << "\n";
+        // }
+        // std::cout << (improved ? "Yes" : "No") << " " << moveTypeToString(bestNeighbor.type) << " score: " << tsp.evaluate(tour) << "\n";
         // std::cout<<(improved?"Yes":"No") << " " << moveTypeToString(bestNeighbor.type)<< " score:" << tsp.evaluate(tour) << "\n";
     }
     return tour;
@@ -684,7 +710,7 @@ std::vector<int> greedyWalk( const TSPInstance& tsp, std::vector<int> base_solut
     bool improved = true;
     int score = tsp.evaluate(tour);
     int counter = 0;
-    MoveType lastMoveType_dbg = MoveType::empty;
+    // MoveType lastMoveType_dbg = MoveType::empty;
     while(improved) {
         // if (counter++%1000 == 0) {
         //     std::cout << counter<<"Current score: " << score << ", tour size: " << tour.size() << "\n";
@@ -696,7 +722,7 @@ std::vector<int> greedyWalk( const TSPInstance& tsp, std::vector<int> base_solut
         
         for(Neighbour& neighbor : neighbors) {
             int delta = transformation_delta(neighbor, tour, tsp);
-            lastMoveType_dbg = neighbor.type;
+            // lastMoveType_dbg = neighbor.type;
             if(delta > 0 ) {
                 // if (neighbor.type == MoveType::Add || neighbor.type == MoveType::remove)
                 //     puts("add/remove zwraca delta");
