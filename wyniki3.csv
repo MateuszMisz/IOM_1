@@ -1,0 +1,9 @@
+algorytm;instancja;rozwiazanie bazowe;typ ruchu wewnatrztrasowego;sredni czas;max czas;min czas;sredni wynik;max wynik;min wynik
+regret_gc;A;deterministic;none;3614.73;5826;3292;6191.96;6985;4810
+regret_gc;B;deterministic;none;3652.84;6839;3269;18055.9;19486;17086
+steep_walk;A;random;swap_edges;24715.1;49559;66;5503.06;7561;272
+steep_walk;B;random;swap_edges;28572.5;52821;391;16397.1;19319;2625
+lm_walk;A;random;swap_edges;8593.34;22952;88;5519.43;7561;272
+lm_walk;B;random;swap_edges;9371.64;39425;162;16373.4;19319;2625
+candidate_walk;A;random;swap_edges;22338.7;42189;568;5692.87;7490;331
+candidate_walk;B;random;swap_edges;23716.4;47414;1409;17033.6;19141;2768
