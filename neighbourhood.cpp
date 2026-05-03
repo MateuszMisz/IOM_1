@@ -108,13 +108,23 @@ std::vector<Neighbour> generateCandidateNeighbourhood(const std::vector<int>& to
         }
     };
 
-    for (int v = 0; v < n; ++v) {
-        if (inTour[v]) continue;
-        for (int near : incidentCandidates[v]) {
-            if (!inTour[near]) continue;
-            int p = pos[near];
-            addUniqueAdd(v, p);
-            addUniqueAdd(v, p + 1);
+    // for (int v = 0; v < n; ++v) {
+    //     if (inTour[v]) continue;
+    //     for (int near : incidentCandidates[v]) {
+    //         if (!inTour[near]) continue;
+    //         int p = pos[near];
+    //         addUniqueAdd(v, p);
+    //         addUniqueAdd(v, p + 1);
+    //     }
+    // }
+    for (int v = 0; v < tour.size();v++){
+        int v_global_idx = tour[v];
+        for(int near : incidentCandidates[v_global_idx]){
+            if(!inTour[near]){
+
+            addUniqueAdd(near, v);
+            addUniqueAdd(near, v+1);
+            }
         }
     }
 
@@ -221,9 +231,12 @@ void generateSwapEdgesNeighbourhood(const std::vector<int>& tour, const TSPInsta
         }
     }
 }
-Neighbour generateRandomNeigbour(const std::vector<int>& tour, const TSPInstance& tsp,std::mt19937& rng){
-    std::uniform_int_distribution<int> moveTypeDist(0, 3);
-    MoveType moveType = static_cast<MoveType>(moveTypeDist(rng));
+Neighbour generateRandomNeigbour(const std::vector<int>& tour, const TSPInstance& tsp,std::mt19937& rng,MoveType moveType) {
+    if(moveType == MoveType::empty){
+        std::uniform_int_distribution<int> moveTypeDist(0, 3);
+        moveType = static_cast<MoveType>(moveTypeDist(rng));
+    }
+    
     int n = tsp.size();
     int k = tour.size();
 

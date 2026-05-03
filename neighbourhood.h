@@ -1,6 +1,7 @@
 #pragma once
 #include<vector>
 #include "tsp.h"
+#include <random>
 using CandidateLists = std::vector<std::vector<int>>;
 enum class MoveType {
     Add,
@@ -43,7 +44,7 @@ private:
 };
 enum class InTourMoveType {
     SwapVertices,
-    SwapEdges
+    SwapEdges,
 };
 std::vector<Neighbour> generateNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, InTourMoveType moveType);
 CandidateLists buildCandidateLists(const TSPInstance& tsp, int candidate_count = 10);
@@ -52,3 +53,4 @@ void generateAddNeighbourhood(const std::vector<int>& tour, const TSPInstance& t
 void generateRemoveNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, std::vector<Neighbour>& out_neighbours);
 void generateSwapVerticesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, std::vector<Neighbour>& out_neighbours);
 void generateSwapEdgesNeighbourhood(const std::vector<int>& tour, const TSPInstance& tsp, std::vector<Neighbour>& out_neighbours);
+Neighbour generateRandomNeigbour(const std::vector<int>& tour, const TSPInstance& tsp,std::mt19937& rng, MoveType moveType=MoveType::empty) ;

@@ -12,6 +12,13 @@ using AlgoFuncWalk = std::function<std::vector<int>( const TSPInstance&,std::vec
  * double avg, 
  * int min, max
  */
+enum class RemovalMode {
+    WorstVertex,   // Usuwa wierzchołki o najwyższym koszcie (dist(a,v) + dist(v,b))
+    WorstEdge,     // Usuwa oba końce najdłuższych krawędzi
+    Random,        // Usuwa losowe wierzchołki (dobre na ucieczkę z minimów lokalnych)
+    RandomSubpath, // Usuwa jeden losowy spójny podciąg wierzchołków
+    AllRandom      // Losuje jedną z powyższych strategii przy każdym wywołaniu destroy
+};
 struct Stats {
     double avg;
     int    min, max;
@@ -35,6 +42,10 @@ struct TimeStats {
     double avg;
     long long min, max;
 };
+struct PerturbationStats{
+    double avg;
+    int min,max, best;
+};
 /**
  * pola:
  *  - TimeStats time_stats; // statystyki czasu wykonania
@@ -45,7 +56,8 @@ struct AlgoStatsTimed {
     TimeStats time_stats;
     Stats score_stats;// wyniki po fazie I (pełny cykl Hamiltona)
     std::vector<int> bestTour;  // najlepsze rozwiązanie końcowe
-    AlgoStatsTimed(): time_stats({0.0, LLONG_MAX, LLONG_MIN}), score_stats({0.0, INT_MAX, INT_MIN}), bestTour({}) {}
+    PerturbationStats perturbation_stats; // statystyki perturbacji (średnia, min, max, najlepsza)
+    AlgoStatsTimed(): time_stats({0.0, LLONG_MAX, LLONG_MIN}), score_stats({0.0, INT_MAX, INT_MIN}), bestTour({}), perturbation_stats({0, INT_MAX, INT_MIN, 0}) {}
 };
 
 std::vector<int> randomSolution(int n, std::mt19937& rng);
@@ -81,3 +93,13 @@ std::vector<int> steepestWalkCandidate(const TSPInstance& tsp, std::vector<int> 
 std::vector<int> greedyWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, std::mt19937& rng);
 std::vector<int> randomWalk(const TSPInstance& tsp, std::vector<int> base_solution, InTourMoveType move_type, double time_limit, std::mt19937& rng);
 Neighbour generateRandomNeigbour(const std::vector<int>& tour, const TSPInstance& tsp,std::mt19937& rng);
+AlgoStatsTimed MLSL(const TSPInstance& tsp, std::mt19937& rng, int runs=20, int iterations_per_run=200, AlgoFuncWalk local_search = steepestWalkLM);
+std::tuple<std::vector<int>, int, long long, int>collectMLSLOneRun(AlgoFuncWalk algo,const TSPInstance& tsp, InTourMoveType move_type, int n, std::mt19937& rng); ;
+AlgoStatsTimed ILS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search = steepestWalkLM);
+std::tuple<std::vector<int>,int,long long,int> ILSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search);
+std::vector<int> perturbation(std::vector<int> tour, const TSPInstance& tsp, int moves_in_perturbation, std::mt19937& rng, MoveType move_type);    
+Neighbour generateRandomMove(const std::vector<int>& tour,std::vector<bool>&inTour, const TSPInstance& tsp,std::mt19937& rng,MoveType moveType);
+AlgoStatsTimed LNS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search = steepestWalkLM);
+std::tuple<std::vector<int>,int,long long,int> LNSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search);
+std::vector<int> destroy(const std::vector<int>& tour, const TSPInstance& tsp, float destruction_rate, RemovalMode mode, std::mt19937& rng);
+std::vector<int> repair(const std::vector<int>& partial_tour, const TSPInstance& tsp, std::mt19937& rng);

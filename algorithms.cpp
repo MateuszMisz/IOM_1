@@ -11,7 +11,9 @@
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
-
+#include <optional>
+// std::vector<int> free_vertices;
+// std::vector<std::pair<MoveType,std::pair<int,int>>>roll_back_neighbours;
 // Delta funkcji celu przy wstawieniu v między a i b:
 // delta = profit[v] + dist[a][b] - dist[a][v] - dist[v][b]
 // Jeśli useProfit=false, pomijamy profit (faza I nie uwzględnia zysku).
@@ -1137,4 +1139,470 @@ std::vector<int> greedyWalk( const TSPInstance& tsp, std::vector<int> base_solut
         // std::cout << (improved ? "Yes" : "No") << " " << moveTypeToString(lastMoveType_dbg) << " score: " << score << "\n";
     }
     return tour;
+}
+
+AlgoStatsTimed MLSL(const TSPInstance& tsp, std::mt19937& rng, int runs, int iterations_per_run, AlgoFuncWalk local_search) {
+
+    InTourMoveType move_type = InTourMoveType::SwapEdges; // Możesz zmienić na inny typ ruchu, jeśli chcesz
+    Stats score_stats{ 0.0, INT_MAX, INT_MIN };
+    TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
+    PerturbationStats perturbation_stats{ 0, INT_MAX,INT_MIN, 0 };
+    std::vector<int> bestTour;
+    int delta = 0;
+    int best_score = INT_MIN;
+    for(int i = 0 ; i < runs; i++){
+        std::cout<<"Run " << i+1 << "/" << runs << "\n";
+        auto [solution, score, runs_time, n] = collectMLSLOneRun(local_search, tsp, move_type, iterations_per_run, rng);
+        
+
+        time_stats.avg += runs_time; 
+        time_stats.min  = std::min(time_stats.min, runs_time);
+        time_stats.max  = std::max(time_stats.max, runs_time);
+        score_stats.avg += score;
+        score_stats.min  = std::min(score_stats.min, score);
+        score_stats.max  = std::max(score_stats.max, score);
+        delta = score - best_score;
+
+        if (delta>0) {
+            best_score = score;
+            bestTour = solution;
+        }
+    }
+    score_stats.avg /= runs;
+    time_stats.avg /= runs;
+    AlgoStatsTimed result;
+    result.time_stats = time_stats;
+    result.score_stats = score_stats;
+    result.bestTour = bestTour;
+    perturbation_stats.avg = iterations_per_run;
+    perturbation_stats.min = iterations_per_run;
+    perturbation_stats.max = iterations_per_run;
+    perturbation_stats.best= iterations_per_run;
+    result.perturbation_stats = perturbation_stats;
+    return result;
+}
+std::tuple<std::vector<int>, int, long long, int> collectMLSLOneRun(AlgoFuncWalk algo,const TSPInstance& tsp, InTourMoveType move_type, int n, std::mt19937& rng) {
+    if (n == -1) n = tsp.size();
+    std::vector<int> bestTour;
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    // std::mt19937 rng(69);
+    int bestScore = INT_MIN;
+    for (int s = 0; s < n; ++s) {
+        if (s % 30 == 0)
+        std::cout<<"Iteration " << s+1 << "/" << n << "\n";
+        std::vector<int> base_solution = randomSolution(tsp.size(), rng);
+
+        auto tour    = algo( tsp, base_solution, move_type, rng);
+        
+       
+        int  score1  = tsp.evaluate(tour);
+
+        if (score1 > bestScore) {
+            bestScore = score1;
+            bestTour  = tour;
+        }
+    }
+     auto end_time = std::chrono::high_resolution_clock::now();
+        long long duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+
+    return {bestTour, bestScore, duration, n};
+}
+
+AlgoStatsTimed ILS(const TSPInstance& tsp,std::mt19937& rng ,int runs,long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search ){
+    Stats score_stats{ 0.0, INT_MAX, INT_MIN };
+    TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
+    PerturbationStats perturbation_stats{ 0, INT_MAX,INT_MIN, 0 };
+    std::vector<int> bestTour;
+    int best_score = INT_MIN;
+    for (int i = 0; i < runs; i++){
+        std::cerr<<"Run " << i+1 << "/" << runs << "\n";
+        auto [tour, score, duration, perturbation_count] = ILSOneRun(tsp, rng, time_limit, moves_in_perturbation, local_search);
+        score_stats.avg += score;
+        score_stats.min  = std::min(score_stats.min, score);
+        score_stats.max  = std::max(score_stats.max, score);
+        time_stats.avg += duration;
+        time_stats.min  = std::min(time_stats.min, duration);
+        time_stats.max  = std::max(time_stats.max, duration);
+        perturbation_stats.avg += perturbation_count;
+        perturbation_stats.min  = std::min(perturbation_stats.min, perturbation_count);
+        perturbation_stats.max  = std::max(perturbation_stats.max, perturbation_count);
+        if (score > best_score) {
+            best_score = score;
+            bestTour = tour;
+            perturbation_stats.best = perturbation_count;
+        }
+    }
+    score_stats.avg /= runs;
+    time_stats.avg /= runs;
+    perturbation_stats.avg /= runs;
+    AlgoStatsTimed result;
+    result.time_stats = time_stats;
+    result.score_stats = score_stats;
+    result.perturbation_stats = perturbation_stats;
+    result.bestTour = bestTour;
+    return result;
+}
+/**
+ * returns tour, score, duration, perturbation_count
+ */
+std::tuple<std::vector<int>,int,long long,int> ILSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search) {
+     auto start_time = std::chrono::high_resolution_clock::now();
+
+    int score;
+    long long duration;
+    
+    int perturbation_count = 0;
+    int best_score = INT_MIN;
+    std::vector<int> bestTour;
+
+    // std::cerr<<"Generating initial solution...\n";
+    std::vector<int> tour = randomSolution(tsp.size(), rng);
+  
+    // std::cerr<<"Initial solution generated. Starting local search...\n";
+    tour = local_search(tsp, tour, InTourMoveType::SwapEdges, rng);
+    int current_score = tsp.evaluate(tour);
+    bestTour = tour;
+    best_score = current_score;
+    int debug_counter=0;
+    while (true) {
+        // std::cerr<<"Perturbation " << perturbation_count+1 <<"time: "<< std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count() <<'/'<< time_limit <<"\n";
+        std::vector<int> perturbated_tour  = perturbation(bestTour, tsp, moves_in_perturbation, rng, MoveType::empty);
+        // std::cerr<<"Perturbation done. Starting local search...\n";
+        perturbated_tour = local_search(tsp, perturbated_tour, InTourMoveType::SwapEdges, rng);
+        // std::cerr<<"Local search done. Evaluating solution...\n";
+        int perturbated_score = tsp.evaluate(perturbated_tour);
+        // std::cerr<<"evaluation done. checking time";
+        long long elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
+        if (elapsed_time >= time_limit) {
+        return {bestTour, best_score, elapsed_time, perturbation_count};
+        }
+        perturbation_count++;
+
+        if (perturbated_score > best_score) {
+            best_score = perturbated_score;
+            bestTour = perturbated_tour;
+        }
+    }
+}
+/**
+ * returns a std::pair<tour_with_perturbation,inTour,changed_indexes(inTour)>
+ */
+std::vector<int> perturbation(std::vector<int> tour, const TSPInstance& tsp, int moves_in_perturbation, std::mt19937& rng, MoveType move_type) {
+    std::vector<bool> inTour(tsp.size(),false);
+    for(auto v : tour) inTour[v]=true;
+    if (move_type == MoveType::empty)
+    {
+        std::uniform_int_distribution<int> perturbation_dist(0,2);
+        int number = perturbation_dist(rng);
+        switch(number){
+            case 0:
+             move_type = MoveType::Add;
+            break;
+            case 1:
+             move_type = MoveType::remove;
+            break;
+          
+            case 2:
+            move_type= MoveType::swap_edges;
+            break;
+        }
+    }
+    
+    // Validate move type is possible for current tour size
+    int currentSize = static_cast<int>(tour.size());
+    if (move_type == MoveType::Add && currentSize +moves_in_perturbation>= tsp.size()) {
+        move_type = MoveType::remove;
+    }
+    if (move_type == MoveType::remove && currentSize - moves_in_perturbation <= 2) {
+        move_type = MoveType::Add;
+    }
+    if (move_type == MoveType::swap_edges && currentSize < 4) {
+        if(currentSize - moves_in_perturbation <= 2) {
+            move_type = MoveType::Add;
+        } else {
+            move_type = MoveType::remove;
+        }
+    }
+    
+    for (int i = 0; i < moves_in_perturbation; ++i) {
+        Neighbour neighbor = generateRandomMove(tour, inTour,  tsp, rng, move_type);
+        neighbor.transform(tour, tsp);
+    }
+
+    return tour;
+}   
+Neighbour generateRandomMove(const std::vector<int>& tour,std::vector<bool>&inTour, const TSPInstance& tsp,std::mt19937& rng,MoveType moveType) {
+    if(moveType == MoveType::empty){
+        std::uniform_int_distribution<int> moveTypeDist(0, 2);
+        int number = moveTypeDist(rng);
+        switch(number){
+            case 0:
+            moveType = MoveType::Add;
+            break;
+            case 1:
+            moveType = MoveType::remove;
+            break;
+            case 2:
+            moveType= MoveType::swap_edges;
+            break;
+        }
+    }
+    
+    int n = tsp.size();
+    int k = tour.size();
+    int idx;
+    switch(moveType){
+        case MoveType::Add: {
+            if (k >= n) {
+                throw std::runtime_error("Cannot add: tour is full");
+            }
+            while(true){
+                std::uniform_int_distribution<int> n_dist(0,n-1);
+                std::uniform_int_distribution<int> pos_dist(0,k);
+                idx = n_dist(rng);
+                if (!inTour[idx]) {
+                    inTour[idx] = true;
+                    return Neighbour(MoveType::Add, idx, pos_dist(rng));
+                }
+            }
+            break;
+        }
+
+        case MoveType::remove: {
+            if (k <= 2) {
+                throw std::runtime_error("Cannot remove: tour too small");
+            }
+            std::uniform_int_distribution<int> remove_pos_dist(0,k-1);
+            idx = remove_pos_dist(rng);
+            inTour[tour[idx]] = false;
+            return Neighbour(MoveType::remove, idx, -1);
+        }
+
+        case MoveType::swap_edges: {
+            if (k < 4) {
+                throw std::runtime_error("Cannot swap edges: tour too small");
+            }
+            std::uniform_int_distribution<int> swap_e_dist(0,k-1);
+            int first_edge = swap_e_dist(rng);
+            int second_edge = swap_e_dist(rng);
+            while(second_edge == first_edge || second_edge == (first_edge + 1) % k || first_edge == (second_edge + 1) % k)
+                second_edge = swap_e_dist(rng);
+            if(first_edge > second_edge) std::swap(first_edge, second_edge);
+            return Neighbour(MoveType::swap_edges, first_edge, second_edge);
+        }
+
+        case MoveType::empty: {
+            throw std::runtime_error("Generated empty move type in generateRandomNeighbour");
+        }
+    }
+    throw std::runtime_error("Unknown move type in generateRandomNeighbour");
+}
+static std::string removalModeToString(RemovalMode mode) {
+    switch (mode) {
+        case RemovalMode::WorstVertex: return "WorstVertex";
+        case RemovalMode::WorstEdge: return "WorstEdge";
+        case RemovalMode::Random: return "Random";
+        case RemovalMode::RandomSubpath: return "RandomSubpath";
+        case RemovalMode::AllRandom: return "AllRandom";
+        default: return "Unknown";
+    }
+}
+AlgoStatsTimed LNS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search ){
+    Stats score_stats{ 0.0, INT_MAX, INT_MIN };
+    TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
+    PerturbationStats perturbation_stats{ 0, INT_MAX,INT_MIN, 0 };
+    std::vector<int> bestTour;
+    int best_score = INT_MIN;
+    for (int i = 0; i < runs; i++){
+        std::cerr<<"Run " << i+1 << "/" << runs << " with mode " << removalModeToString(mode) << " "<< destruction_rate<<"\n";
+        auto [tour, score, duration, perturbation_count] = LNSOneRun(tsp, rng, time_limit, destruction_rate, mode, use_local_search, local_search);
+        score_stats.avg += score;
+        score_stats.min  = std::min(score_stats.min, score);
+        score_stats.max  = std::max(score_stats.max, score);
+        time_stats.avg += duration;
+        time_stats.min  = std::min(time_stats.min, duration);
+        time_stats.max  = std::max(time_stats.max, duration);
+        perturbation_stats.avg += perturbation_count;
+        perturbation_stats.min  = std::min(perturbation_stats.min, perturbation_count);
+        perturbation_stats.max  = std::max(perturbation_stats.max, perturbation_count);
+        if (score > best_score) {
+            best_score = score;
+            bestTour = tour;
+            perturbation_stats.best = perturbation_count;
+        }
+    }
+    score_stats.avg /= runs;
+    time_stats.avg /= runs;
+    perturbation_stats.avg /= runs;
+    AlgoStatsTimed result;
+    result.time_stats = time_stats;
+    result.score_stats = score_stats;
+    result.perturbation_stats = perturbation_stats;
+    result.bestTour = bestTour;
+    return result;
+}
+
+std::tuple<std::vector<int>,int,long long,int> LNSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    int score;
+    long long duration;
+    
+    int perturbation_count = 0;
+    int best_score = INT_MIN;
+    std::vector<int> bestTour;
+
+    std::vector<int> tour = randomSolution(tsp.size(), rng);
+  
+    tour = local_search(tsp, tour, InTourMoveType::SwapEdges, rng);
+    int current_score = tsp.evaluate(tour);
+    bestTour = tour;
+    best_score = current_score;
+    int debug_counter=0;
+    std::uniform_int_distribution<int> mode_dist(0, 2);
+    while (true) {
+        RemovalMode activeMode = mode;
+        if (mode == RemovalMode::AllRandom) {
+            activeMode = static_cast<RemovalMode>(mode_dist(rng));
+        }
+
+        std::vector<int> tmp_solution = destroy(tour, tsp, destruction_rate, activeMode, rng);
+        tmp_solution = repair(tmp_solution,tsp,rng);
+        if(use_local_search) {
+            tmp_solution = local_search(tsp, tmp_solution, InTourMoveType::SwapEdges, rng);
+        }
+        int tmp_score = tsp.evaluate(tmp_solution);
+        long long elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
+        if (elapsed_time >= time_limit) {
+            return {bestTour, best_score, elapsed_time, perturbation_count};
+        }
+        perturbation_count++; 
+        if (tmp_score > best_score) {
+            best_score = tmp_score;
+            bestTour = tmp_solution;
+            tour = tmp_solution;
+        }
+        
+    }
+}
+
+std::vector<int> destroy(const std::vector<int>& tour, const TSPInstance& tsp, 
+                         float rate, RemovalMode mode, std::mt19937& rng) {
+    int n = tour.size();
+    int to_remove = static_cast<int>(std::round(static_cast<float>(n) * rate));
+    if (n <= 4 || to_remove <= 0) return tour;
+    if (to_remove >= n - 2) to_remove = n - 3;
+
+    std::vector<bool> is_removed(n, false);
+    
+    if (mode == RemovalMode::WorstVertex) {
+        // ... logika z std::nth_element dla kosztu wierzchołków ...
+        struct Item { int idx; int cost; };
+        std::vector<Item> items(n);
+        for (int i = 0; i < n; ++i) {
+            int prev = tour[(i - 1 + n) % n];
+            int next = tour[(i + 1) % n];
+            items[i] = {i, tsp.dist[prev][tour[i]] + tsp.dist[tour[i]][next]};
+        }
+        std::nth_element(items.begin(), items.begin() + n - to_remove, items.end(),
+                         [](const Item& a, const Item& b) { return a.cost < b.cost; });
+        for (int i = n - to_remove; i < n; ++i) is_removed[items[i].idx] = true;
+    } 
+    else if (mode == RemovalMode::WorstEdge) {
+        // ... logika usuwania końców najdłuższych krawędzi ...
+        struct Edge { int u_idx, v_idx, len; };
+        std::vector<Edge> edges(n);
+        for (int i = 0; i < n; ++i) {
+            edges[i] = {i, (i + 1) % n, tsp.dist[tour[i]][tour[(i + 1) % n]]};
+        }
+        std::nth_element(edges.begin(), std::max(edges.begin(), edges.end() - to_remove), edges.end(),
+                         [](const Edge& a, const Edge& b) { return a.len < b.len; });
+        int removed = 0;
+        for (int i = n - 1; i >= 0 && removed < to_remove; --i) {
+            if (!is_removed[edges[i].u_idx]) { is_removed[edges[i].u_idx] = true; removed++; }
+            if (removed >= to_remove) break;
+            if (!is_removed[edges[i].v_idx]) { is_removed[edges[i].v_idx] = true; removed++; }
+        }
+    } 
+    else if (mode == RemovalMode::Random) {
+        // Proste losowanie indeksów
+        std::vector<int> indices(n);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::shuffle(indices.begin(), indices.end(), rng);
+        for(int i = 0; i < to_remove; ++i) is_removed[indices[i]] = true;
+    }
+    else if (mode == RemovalMode::RandomSubpath) {
+        // Losujemy jeden spójny podciąg na cyklu i usuwamy go w całości.
+        std::uniform_int_distribution<int> start_dist(0, n - 1);
+        int start = start_dist(rng);
+        for (int i = 0; i < to_remove; ++i) {
+            is_removed[(start + i) % n] = true;
+        }
+    }
+
+    // Budowanie nowej trasy
+    std::vector<int> partial_tour;
+    for (int i = 0; i < n; ++i) {
+        if (!is_removed[i]) partial_tour.push_back(tour[i]);
+    }
+    return partial_tour;
+}
+
+std::vector<int> repair(const std::vector<int>& partial_tour, const TSPInstance& tsp, std::mt19937& rng) {
+    (void)rng;
+
+    std::vector<int> tour = partial_tour;
+    std::vector<bool> inTour(tsp.size(), false);
+    for (int v : tour) {
+        inTour[v] = true;
+    }
+
+    while (static_cast<int>(tour.size()) < tsp.size()) {
+        int bestVertex = -1;
+        int bestPosition = -1;
+        int bestRegret = INT_MIN;
+        int bestDelta1 = INT_MIN;
+
+        for (int v = 0; v < tsp.size(); ++v) {
+            if (inTour[v]) continue;
+
+            int delta1 = INT_MIN;
+            int delta2 = INT_MIN;
+            int position1 = -1;
+
+            if (tour.empty()) {
+                delta1 = tsp.nodes[v].profit;
+                position1 = 0;
+            } else {
+                int k = static_cast<int>(tour.size());
+                for (int i = 0; i < k; ++i) {
+                    int delta = insertionDelta(tour[i], v, tour[(i + 1) % k], tsp, true);
+                    if (delta > delta1) {
+                        delta2 = delta1;
+                        delta1 = delta;
+                        position1 = i + 1;
+                    } else if (delta > delta2) {
+                        delta2 = delta;
+                    }
+                }
+            }
+
+            int regret = delta1 - delta2;
+            if (regret > bestRegret || (regret == bestRegret && delta1 > bestDelta1)) {
+                bestRegret = regret;
+                bestDelta1 = delta1;
+                bestVertex = v;
+                bestPosition = position1;
+            }
+        }
+
+        if (bestVertex == -1) break;
+
+        tour.insert(tour.begin() + bestPosition, bestVertex);
+        inTour[bestVertex] = true;
+    }
+
+    return phaseII(tour, tsp);
 }
