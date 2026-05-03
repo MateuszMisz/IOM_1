@@ -1189,8 +1189,6 @@ std::tuple<std::vector<int>, int, long long, int> collectMLSLOneRun(AlgoFuncWalk
     // std::mt19937 rng(69);
     int bestScore = INT_MIN;
     for (int s = 0; s < n; ++s) {
-        if (s % 30 == 0)
-        std::cout<<"Iteration " << s+1 << "/" << n << "\n";
         std::vector<int> base_solution = randomSolution(tsp.size(), rng);
 
         auto tour    = algo( tsp, base_solution, move_type, rng);
@@ -1215,10 +1213,12 @@ AlgoStatsTimed ILS(const TSPInstance& tsp,std::mt19937& rng ,int runs,long long 
     TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
     PerturbationStats perturbation_stats{ 0, INT_MAX,INT_MIN, 0 };
     std::vector<int> bestTour;
+    std::vector<int> bestStartingTour;
+    std::vector<int> bestInitialLocalSearchTour;
     int best_score = INT_MIN;
     for (int i = 0; i < runs; i++){
         std::cerr<<"Run " << i+1 << "/" << runs << "\n";
-        auto [tour, score, duration, perturbation_count] = ILSOneRun(tsp, rng, time_limit, moves_in_perturbation, local_search);
+        auto [tour, score, duration, perturbation_count, startingTour, initialLocalSearchTour] = ILSOneRun(tsp, rng, time_limit, moves_in_perturbation, local_search);
         score_stats.avg += score;
         score_stats.min  = std::min(score_stats.min, score);
         score_stats.max  = std::max(score_stats.max, score);
@@ -1231,6 +1231,8 @@ AlgoStatsTimed ILS(const TSPInstance& tsp,std::mt19937& rng ,int runs,long long 
         if (score > best_score) {
             best_score = score;
             bestTour = tour;
+            bestStartingTour = startingTour;
+            bestInitialLocalSearchTour = initialLocalSearchTour;
             perturbation_stats.best = perturbation_count;
         }
     }
@@ -1240,6 +1242,8 @@ AlgoStatsTimed ILS(const TSPInstance& tsp,std::mt19937& rng ,int runs,long long 
     AlgoStatsTimed result;
     result.time_stats = time_stats;
     result.score_stats = score_stats;
+    result.startingTour = bestStartingTour;
+    result.initialLocalSearchTour = bestInitialLocalSearchTour;
     result.perturbation_stats = perturbation_stats;
     result.bestTour = bestTour;
     return result;
@@ -1247,7 +1251,7 @@ AlgoStatsTimed ILS(const TSPInstance& tsp,std::mt19937& rng ,int runs,long long 
 /**
  * returns tour, score, duration, perturbation_count
  */
-std::tuple<std::vector<int>,int,long long,int> ILSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search) {
+std::tuple<std::vector<int>,int,long long,int,std::vector<int>,std::vector<int>> ILSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search) {
      auto start_time = std::chrono::high_resolution_clock::now();
 
     int score;
@@ -1258,10 +1262,12 @@ std::tuple<std::vector<int>,int,long long,int> ILSOneRun(const TSPInstance& tsp,
     std::vector<int> bestTour;
 
     // std::cerr<<"Generating initial solution...\n";
-    std::vector<int> tour = randomSolution(tsp.size(), rng);
+    std::vector<int> startingTour = randomSolution(tsp.size(), rng);
+    std::vector<int> tour = startingTour;
   
     // std::cerr<<"Initial solution generated. Starting local search...\n";
     tour = local_search(tsp, tour, InTourMoveType::SwapEdges, rng);
+    std::vector<int> initialLocalSearchTour = tour;
     int current_score = tsp.evaluate(tour);
     bestTour = tour;
     best_score = current_score;
@@ -1276,7 +1282,7 @@ std::tuple<std::vector<int>,int,long long,int> ILSOneRun(const TSPInstance& tsp,
         // std::cerr<<"evaluation done. checking time";
         long long elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
         if (elapsed_time >= time_limit) {
-        return {bestTour, best_score, elapsed_time, perturbation_count};
+        return {bestTour, best_score, elapsed_time, perturbation_count, startingTour, initialLocalSearchTour};
         }
         perturbation_count++;
 
@@ -1285,6 +1291,74 @@ std::tuple<std::vector<int>,int,long long,int> ILSOneRun(const TSPInstance& tsp,
             bestTour = perturbated_tour;
         }
     }
+}
+
+// Same as ILSOneRun but uses provided starting tour and its initial local-search result
+AlgoStatsTimed ILSWithStarts(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search, const std::vector<std::vector<int>>& startingTours, const std::vector<std::vector<int>>& initialLocalSearchTours) {
+    Stats score_stats{ 0.0, INT_MAX, INT_MIN };
+    TimeStats time_stats{ 0.0, LLONG_MAX, LLONG_MIN };
+    PerturbationStats perturbation_stats{ 0, INT_MAX,INT_MIN, 0 };
+    std::vector<int> bestTour;
+    std::vector<int> bestStartingTour;
+    std::vector<int> bestInitialLocalSearchTour;
+    int best_score = INT_MIN;
+    int runs_eff = std::min(runs, (int)startingTours.size());
+    for (int i = 0; i < runs_eff; ++i) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        const std::vector<int>& startingTour = startingTours[i];
+        const std::vector<int>& initialLocalSearchTour = initialLocalSearchTours[i];
+
+        std::vector<int> tour = initialLocalSearchTour;
+        std::vector<int> initialTour = startingTour;
+        int perturbation_count = 0;
+        int best_score_run = tsp.evaluate(tour);
+        std::vector<int> bestTour_run = tour;
+
+        while (true) {
+            std::vector<int> perturbated_tour  = perturbation(bestTour_run, tsp, moves_in_perturbation, rng, MoveType::empty);
+            perturbated_tour = local_search(tsp, perturbated_tour, InTourMoveType::SwapEdges, rng);
+            int perturbated_score = tsp.evaluate(perturbated_tour);
+            long long elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
+            if (elapsed_time >= time_limit) {
+                // accumulate stats for this run
+                score_stats.avg += best_score_run;
+                score_stats.min = std::min(score_stats.min, best_score_run);
+                score_stats.max = std::max(score_stats.max, best_score_run);
+                time_stats.avg += elapsed_time;
+                time_stats.min = std::min(time_stats.min, elapsed_time);
+                time_stats.max = std::max(time_stats.max, elapsed_time);
+                perturbation_stats.avg += perturbation_count;
+                perturbation_stats.min = std::min(perturbation_stats.min, perturbation_count);
+                perturbation_stats.max = std::max(perturbation_stats.max, perturbation_count);
+                if (best_score_run > best_score) {
+                    best_score = best_score_run;
+                    bestTour = bestTour_run;
+                    bestStartingTour = startingTour;
+                    bestInitialLocalSearchTour = initialLocalSearchTour;
+                    perturbation_stats.best = perturbation_count;
+                }
+                break;
+            }
+            perturbation_count++;
+            if (perturbated_score > best_score_run) {
+                best_score_run = perturbated_score;
+                bestTour_run = perturbated_tour;
+            }
+        }
+    }
+    if (runs_eff > 0) {
+        score_stats.avg /= runs_eff;
+        time_stats.avg /= runs_eff;
+        perturbation_stats.avg /= runs_eff;
+    }
+    AlgoStatsTimed result;
+    result.time_stats = time_stats;
+    result.score_stats = score_stats;
+    result.startingTour = bestStartingTour;
+    result.initialLocalSearchTour = bestInitialLocalSearchTour;
+    result.perturbation_stats = perturbation_stats;
+    result.bestTour = bestTour;
+    return result;
 }
 /**
  * returns a std::pair<tour_with_perturbation,inTour,changed_indexes(inTour)>
@@ -1414,10 +1488,12 @@ AlgoStatsTimed LNS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long 
     TimeStats time_stats{ 0.0, INT_MAX, INT_MIN };
     PerturbationStats perturbation_stats{ 0, INT_MAX,INT_MIN, 0 };
     std::vector<int> bestTour;
+    std::vector<int> bestStartingTour;
+    std::vector<int> bestInitialLocalSearchTour;
     int best_score = INT_MIN;
     for (int i = 0; i < runs; i++){
         std::cerr<<"Run " << i+1 << "/" << runs << " with mode " << removalModeToString(mode) << " "<< destruction_rate<<"\n";
-        auto [tour, score, duration, perturbation_count] = LNSOneRun(tsp, rng, time_limit, destruction_rate, mode, use_local_search, local_search);
+        auto [tour, score, duration, perturbation_count, startingTour, initialLocalSearchTour] = LNSOneRun(tsp, rng, time_limit, destruction_rate, mode, use_local_search, local_search);
         score_stats.avg += score;
         score_stats.min  = std::min(score_stats.min, score);
         score_stats.max  = std::max(score_stats.max, score);
@@ -1430,6 +1506,8 @@ AlgoStatsTimed LNS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long 
         if (score > best_score) {
             best_score = score;
             bestTour = tour;
+            bestStartingTour = startingTour;
+            bestInitialLocalSearchTour = initialLocalSearchTour;
             perturbation_stats.best = perturbation_count;
         }
     }
@@ -1439,12 +1517,14 @@ AlgoStatsTimed LNS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long 
     AlgoStatsTimed result;
     result.time_stats = time_stats;
     result.score_stats = score_stats;
+    result.startingTour = bestStartingTour;
+    result.initialLocalSearchTour = bestInitialLocalSearchTour;
     result.perturbation_stats = perturbation_stats;
     result.bestTour = bestTour;
     return result;
 }
 
-std::tuple<std::vector<int>,int,long long,int> LNSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search) {
+std::tuple<std::vector<int>,int,long long,int,std::vector<int>,std::vector<int>> LNSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     int score;
@@ -1455,8 +1535,10 @@ std::tuple<std::vector<int>,int,long long,int> LNSOneRun(const TSPInstance& tsp,
     std::vector<int> bestTour;
 
     std::vector<int> tour = randomSolution(tsp.size(), rng);
+    std::vector<int> initialTour = tour;
   
     tour = local_search(tsp, tour, InTourMoveType::SwapEdges, rng);
+    std::vector<int> initialLocalSearchTour = tour;
     int current_score = tsp.evaluate(tour);
     bestTour = tour;
     best_score = current_score;
@@ -1473,10 +1555,11 @@ std::tuple<std::vector<int>,int,long long,int> LNSOneRun(const TSPInstance& tsp,
         if(use_local_search) {
             tmp_solution = local_search(tsp, tmp_solution, InTourMoveType::SwapEdges, rng);
         }
+        std::vector<int> iterationInitialLocalSearchTour = tmp_solution;
         int tmp_score = tsp.evaluate(tmp_solution);
         long long elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
         if (elapsed_time >= time_limit) {
-            return {bestTour, best_score, elapsed_time, perturbation_count};
+            return {bestTour, best_score, elapsed_time, perturbation_count, initialTour, initialLocalSearchTour};
         }
         perturbation_count++; 
         if (tmp_score > best_score) {
@@ -1486,6 +1569,80 @@ std::tuple<std::vector<int>,int,long long,int> LNSOneRun(const TSPInstance& tsp,
         }
         
     }
+}
+
+// LNS variant that starts each run from provided starting tour and initial local-search result
+AlgoStatsTimed LNSWithStarts(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search, const std::vector<std::vector<int>>& startingTours, const std::vector<std::vector<int>>& initialLocalSearchTours) {
+    Stats score_stats{ 0.0, INT_MAX, INT_MIN };
+    TimeStats time_stats{ 0.0, LLONG_MAX, LLONG_MIN };
+    PerturbationStats perturbation_stats{ 0, INT_MAX,INT_MIN, 0 };
+    std::vector<int> bestTour;
+    std::vector<int> bestStartingTour;
+    std::vector<int> bestInitialLocalSearchTour;
+    int best_score = INT_MIN;
+    int runs_eff = std::min(runs, (int)startingTours.size());
+    for (int i = 0; i < runs_eff; ++i) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        const std::vector<int>& startingTour = startingTours[i];
+        const std::vector<int>& initialLocalSearchTour = initialLocalSearchTours[i];
+
+        std::vector<int> tour = initialLocalSearchTour;
+        std::vector<int> initialTour = startingTour;
+        int perturbation_count = 0;
+        int best_score_run = tsp.evaluate(tour);
+        std::vector<int> bestTour_run = tour;
+
+        std::uniform_int_distribution<int> mode_dist(0, 2);
+        while (true) {
+            RemovalMode activeMode = mode;
+            if (mode == RemovalMode::AllRandom) {
+                activeMode = static_cast<RemovalMode>(mode_dist(rng));
+            }
+            std::vector<int> tmp_solution = destroy(tour, tsp, destruction_rate, activeMode, rng);
+            tmp_solution = repair(tmp_solution,tsp,rng);
+            if(use_local_search) tmp_solution = local_search(tsp, tmp_solution, InTourMoveType::SwapEdges, rng);
+            int tmp_score = tsp.evaluate(tmp_solution);
+            long long elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
+            if (elapsed_time >= time_limit) {
+                score_stats.avg += best_score_run;
+                score_stats.min = std::min(score_stats.min, best_score_run);
+                score_stats.max = std::max(score_stats.max, best_score_run);
+                time_stats.avg += elapsed_time;
+                time_stats.min = std::min(time_stats.min, elapsed_time);
+                time_stats.max = std::max(time_stats.max, elapsed_time);
+                perturbation_stats.avg += perturbation_count;
+                perturbation_stats.min = std::min(perturbation_stats.min, perturbation_count);
+                perturbation_stats.max = std::max(perturbation_stats.max, perturbation_count);
+                if (best_score_run > best_score) {
+                    best_score = best_score_run;
+                    bestTour = bestTour_run;
+                    bestStartingTour = startingTour;
+                    bestInitialLocalSearchTour = initialLocalSearchTour;
+                    perturbation_stats.best = perturbation_count;
+                }
+                break;
+            }
+            perturbation_count++;
+            if (tmp_score > best_score_run) {
+                best_score_run = tmp_score;
+                bestTour_run = tmp_solution;
+                tour = tmp_solution;
+            }
+        }
+    }
+    if (runs_eff > 0) {
+        score_stats.avg /= runs_eff;
+        time_stats.avg /= runs_eff;
+        perturbation_stats.avg /= runs_eff;
+    }
+    AlgoStatsTimed result;
+    result.time_stats = time_stats;
+    result.score_stats = score_stats;
+    result.startingTour = bestStartingTour;
+    result.initialLocalSearchTour = bestInitialLocalSearchTour;
+    result.perturbation_stats = perturbation_stats;
+    result.bestTour = bestTour;
+    return result;
 }
 
 std::vector<int> destroy(const std::vector<int>& tour, const TSPInstance& tsp, 

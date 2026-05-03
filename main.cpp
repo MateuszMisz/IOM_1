@@ -5,6 +5,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <sstream>
 #include "tsp.h"
 #include "algorithms.h"
 #include <filesystem>
@@ -84,7 +85,7 @@ void updateTimeStats(AlgoStatsTimed& out_stats, AlgoStatsTimed new_stats,int run
 }
 void saveTourToFile(const std::string& filename, const std::vector<int>& tour) {
     // 1. Definiujesz nazwę folderu
-    std::string folder = "wyniki_tsp"; 
+    std::string folder = "zadanie4_tours"; 
 
     // 2. Tworzysz folder (nic się nie stanie, jeśli już istnieje)
     std::filesystem::create_directories(folder);
@@ -135,52 +136,16 @@ int main() {
     AlgoStatsTimed ILS_b = ILS(
         tspB, rng, 20, MLSL_b.time_stats.avg, 5, steepestWalkLM);
 
-    //worstedges
+    // LNS subpaths only
     float destruction_rate=0.3;
-    AlgoStatsTimed LNS_a_edges_local = LNS(
-        tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::WorstEdge, true, steepestWalkLM);
-    AlgoStatsTimed LNS_b_edges_local = LNS(
-        tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::WorstEdge, true, steepestWalkLM);
-    // AlgoStatsTimed LNS_a_edges_no_local = LNS(
-    //     tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::WorstEdge, false, steepestWalkLM);
-    // AlgoStatsTimed LNS_b_edges_no_local = LNS(
-    //     tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::WorstEdge, false, steepestWalkLM);
-
-    //worst vertices
-    AlgoStatsTimed LNS_a_vertices_local = LNS(
-        tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::WorstVertex, true, steepestWalkLM);
-    AlgoStatsTimed LNS_b_vertices_local = LNS(
-        tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::WorstVertex, true, steepestWalkLM);
-    // AlgoStatsTimed LNS_a_vertices_no_local = LNS(
-    //     tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::WorstVertex, false, steepestWalkLM);
-    // AlgoStatsTimed LNS_b_vertices_no_local = LNS(
-    //     tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::WorstVertex, false, steepestWalkLM);
-
-    // subpaths
     AlgoStatsTimed LNS_a_subpaths_local = LNS(
         tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::RandomSubpath, true, steepestWalkLM);
     AlgoStatsTimed LNS_b_subpaths_local = LNS(
         tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::RandomSubpath, true, steepestWalkLM);
-
-    //random
-    // AlgoStatsTimed LNS_a_random_local = LNS(
-    //     tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::Random, true, steepestWalkLM);
-    // AlgoStatsTimed LNS_b_random_local = LNS(
-    //     tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::Random, true, steepestWalkLM);
-    // AlgoStatsTimed LNS_a_random_no_local = LNS(
-    //     tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::Random, false, steepestWalkLM);
-    // AlgoStatsTimed LNS_b_random_no_local = LNS(
-    //     tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::Random, false, steepestWalkLM);
-
-    //all random
-    // AlgoStatsTimed LNS_a_all_random_local = LNS(
-    //     tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::AllRandom, true, steepestWalkLM);
-    // AlgoStatsTimed LNS_b_all_random_local = LNS(
-    //     tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::AllRandom, true, steepestWalkLM);
-    // AlgoStatsTimed LNS_a_all_random_no_local = LNS(
-    //     tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::AllRandom, false, steepestWalkLM);
-    // AlgoStatsTimed LNS_b_all_random_no_local = LNS(
-    //     tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::AllRandom, false, steepestWalkLM);
+    AlgoStatsTimed LNS_a_subpaths_no_local = LNS(
+        tspA, rng, 20, MLSL_a.time_stats.avg, destruction_rate, RemovalMode::RandomSubpath, false, steepestWalkLM);
+    AlgoStatsTimed LNS_b_subpaths_no_local = LNS(
+        tspB, rng, 20, MLSL_b.time_stats.avg, destruction_rate, RemovalMode::RandomSubpath, false, steepestWalkLM);
 
     for (int i = 0; i < runs; ++i) {
         std::cerr << "Task 3 run " << i + 1 << "/" << runs << "\n";
@@ -199,8 +164,10 @@ int main() {
                                  const std::string& base, const std::string& move_type,
                                  const AlgoStatsTimed& stats) {
             auto roundedScoreAvg = static_cast<long long>(std::llround(stats.score_stats.avg));
+                        std::ostringstream timeAvg;
+                        timeAvg << std::fixed << std::setprecision(3) << stats.time_stats.avg;
             task3 << name << ";" << instance << ";" << base << ";" << move_type << ";"
-                  << stats.time_stats.avg << ";" << stats.time_stats.max << ";" << stats.time_stats.min << ";"
+                                    << timeAvg.str() << ";" << stats.time_stats.max << ";" << stats.time_stats.min << ";"
                 << roundedScoreAvg << ";" << stats.score_stats.max << ";" << stats.score_stats.min << ";"
                   << stats.perturbation_stats.avg << ";" << stats.perturbation_stats.min << ";" << stats.perturbation_stats.max << ";" << stats.perturbation_stats.best << "\n";
         };
@@ -212,16 +179,10 @@ int main() {
         writeTask3Row("MLSL",          "B", "random", "swap_edges", MLSL_b);
         writeTask3Row("ILS",           "A", "random", "swap_edges", ILS_a);
         writeTask3Row("ILS",           "B", "random", "swap_edges", ILS_b);
-        writeTask3Row("LNS_worst_edges_local", "A", "random", "swap_edges", LNS_a_edges_local);
-        writeTask3Row("LNS_worst_edges_local", "B", "random", "swap_edges", LNS_b_edges_local);
-        writeTask3Row("LNS_worst_vertices_local", "A", "random", "swap_edges", LNS_a_vertices_local);
-        writeTask3Row("LNS_worst_vertices_local", "B", "random", "swap_edges", LNS_b_vertices_local);
         writeTask3Row("LNS_subpaths_local", "A", "random", "swap_edges", LNS_a_subpaths_local);
         writeTask3Row("LNS_subpaths_local", "B", "random", "swap_edges", LNS_b_subpaths_local);
-        // writeTask3Row("LNS_random_local", "A", "random", "swap_edges", LNS_a_random_local);
-        // writeTask3Row("LNS_random_local", "B", "random", "swap_edges", LNS_b_random_local);
-        // writeTask3Row("LNS_all_random_local", "A", "random", "swap_edges", LNS_a_all_random_local);
-        // writeTask3Row("LNS_all_random_local", "B", "random", "swap_edges", LNS_b_all_random_local);
+        writeTask3Row("LNS_subpaths_no_local", "A", "random", "swap_edges", LNS_a_subpaths_no_local);
+        writeTask3Row("LNS_subpaths_no_local", "B", "random", "swap_edges", LNS_b_subpaths_no_local);
     } else {
         std::cerr << "Blad zapisu do: wyniki3.csv\n";
     }
@@ -232,6 +193,24 @@ int main() {
     saveTourToFile("candidate_walk_b_random_edges.txt", candidate_walk_b_random_edges.bestTour);
     saveTourToFile("MLSL_a.txt", MLSL_a.bestTour);
     saveTourToFile("MLSL_b.txt", MLSL_b.bestTour);
+    saveTourToFile("ILS_a_starting_tour.txt", ILS_a.startingTour);
+    saveTourToFile("ILS_a_after_initial_local_search.txt", ILS_a.initialLocalSearchTour);
+    saveTourToFile("ILS_a_final_tour.txt", ILS_a.bestTour);
+    saveTourToFile("ILS_b_starting_tour.txt", ILS_b.startingTour);
+    saveTourToFile("ILS_b_after_initial_local_search.txt", ILS_b.initialLocalSearchTour);
+    saveTourToFile("ILS_b_final_tour.txt", ILS_b.bestTour);
+    saveTourToFile("LNS_subpaths_a_starting_tour.txt", LNS_a_subpaths_local.startingTour);
+    saveTourToFile("LNS_subpaths_a_after_initial_local_search.txt", LNS_a_subpaths_local.initialLocalSearchTour);
+    saveTourToFile("LNS_subpaths_a_final_tour.txt", LNS_a_subpaths_local.bestTour);
+    saveTourToFile("LNS_subpaths_b_starting_tour.txt", LNS_b_subpaths_local.startingTour);
+    saveTourToFile("LNS_subpaths_b_after_initial_local_search.txt", LNS_b_subpaths_local.initialLocalSearchTour);
+    saveTourToFile("LNS_subpaths_b_final_tour.txt", LNS_b_subpaths_local.bestTour);
+    saveTourToFile("LNS_subpaths_a_no_local_starting_tour.txt", LNS_a_subpaths_no_local.startingTour);
+    saveTourToFile("LNS_subpaths_a_no_local_after_initial_local_search.txt", LNS_a_subpaths_no_local.initialLocalSearchTour);
+    saveTourToFile("LNS_subpaths_a_no_local_final_tour.txt", LNS_a_subpaths_no_local.bestTour);
+    saveTourToFile("LNS_subpaths_b_no_local_starting_tour.txt", LNS_b_subpaths_no_local.startingTour);
+    saveTourToFile("LNS_subpaths_b_no_local_after_initial_local_search.txt", LNS_b_subpaths_no_local.initialLocalSearchTour);
+    saveTourToFile("LNS_subpaths_b_no_local_final_tour.txt", LNS_b_subpaths_no_local.bestTour);
 
     // Demo przed/po: jeden wspólny start losowy dla wizualizacji
     std::mt19937 demo_rng(42);

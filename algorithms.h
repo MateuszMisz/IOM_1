@@ -55,9 +55,11 @@ struct PerturbationStats{
 struct AlgoStatsTimed {
     TimeStats time_stats;
     Stats score_stats;// wyniki po fazie I (pełny cykl Hamiltona)
+    std::vector<int> startingTour; // start najlepszego uruchomienia
+    std::vector<int> initialLocalSearchTour; // wynik początkowego local search najlepszego uruchomienia
     std::vector<int> bestTour;  // najlepsze rozwiązanie końcowe
     PerturbationStats perturbation_stats; // statystyki perturbacji (średnia, min, max, najlepsza)
-    AlgoStatsTimed(): time_stats({0.0, LLONG_MAX, LLONG_MIN}), score_stats({0.0, INT_MAX, INT_MIN}), bestTour({}), perturbation_stats({0, INT_MAX, INT_MIN, 0}) {}
+    AlgoStatsTimed(): time_stats({0.0, LLONG_MAX, LLONG_MIN}), score_stats({0.0, INT_MAX, INT_MIN}), startingTour({}), initialLocalSearchTour({}), bestTour({}), perturbation_stats({0, INT_MAX, INT_MIN, 0}) {}
 };
 
 std::vector<int> randomSolution(int n, std::mt19937& rng);
@@ -96,10 +98,10 @@ Neighbour generateRandomNeigbour(const std::vector<int>& tour, const TSPInstance
 AlgoStatsTimed MLSL(const TSPInstance& tsp, std::mt19937& rng, int runs=20, int iterations_per_run=200, AlgoFuncWalk local_search = steepestWalkLM);
 std::tuple<std::vector<int>, int, long long, int>collectMLSLOneRun(AlgoFuncWalk algo,const TSPInstance& tsp, InTourMoveType move_type, int n, std::mt19937& rng); ;
 AlgoStatsTimed ILS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search = steepestWalkLM);
-std::tuple<std::vector<int>,int,long long,int> ILSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search);
+std::tuple<std::vector<int>,int,long long,int,std::vector<int>,std::vector<int>> ILSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, int moves_in_perturbation, AlgoFuncWalk local_search);
 std::vector<int> perturbation(std::vector<int> tour, const TSPInstance& tsp, int moves_in_perturbation, std::mt19937& rng, MoveType move_type);    
 Neighbour generateRandomMove(const std::vector<int>& tour,std::vector<bool>&inTour, const TSPInstance& tsp,std::mt19937& rng,MoveType moveType);
 AlgoStatsTimed LNS(const TSPInstance& tsp,std::mt19937& rng,int runs ,long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search = steepestWalkLM);
-std::tuple<std::vector<int>,int,long long,int> LNSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search);
+std::tuple<std::vector<int>,int,long long,int,std::vector<int>,std::vector<int>> LNSOneRun(const TSPInstance& tsp, std::mt19937& rng, long long time_limit, float destruction_rate, RemovalMode mode, bool use_local_search, AlgoFuncWalk local_search);
 std::vector<int> destroy(const std::vector<int>& tour, const TSPInstance& tsp, float destruction_rate, RemovalMode mode, std::mt19937& rng);
 std::vector<int> repair(const std::vector<int>& partial_tour, const TSPInstance& tsp, std::mt19937& rng);
