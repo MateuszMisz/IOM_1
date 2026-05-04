@@ -1,9 +1,13 @@
-algorytm;instancja;rozwiazanie bazowe;typ ruchu wewnatrztrasowego;sredni czas;max czas;min czas;sredni wynik;max wynik;min wynik
-regret_gc;A;deterministic;none;3614.73;5826;3292;6191.96;6985;4810
-regret_gc;B;deterministic;none;3652.84;6839;3269;18055.9;19486;17086
-steep_walk;A;random;swap_edges;24715.1;49559;66;5503.06;7561;272
-steep_walk;B;random;swap_edges;28572.5;52821;391;16397.1;19319;2625
-lm_walk;A;random;swap_edges;8593.34;22952;88;5519.43;7561;272
-lm_walk;B;random;swap_edges;9371.64;39425;162;16373.4;19319;2625
-candidate_walk;A;random;swap_edges;22338.7;42189;568;5692.87;7490;331
-candidate_walk;B;random;swap_edges;23716.4;47414;1409;17033.6;19141;2768
+algorytm;instancja;rozwiazanie bazowe;typ ruchu wewnatrztrasowego;sredni czas;max czas;min czas;sredni wynik;max wynik;min wynik;srednia iteracji; min iteracji; max iteracji; najlepsze iteracje; 
+lm_walk;A;random;swap_edges;15556.350;87077;73;5519;7561;272;0;2147483647;-2147483648;0
+lm_walk;B;random;swap_edges;17731.310;76975;225;16373;19319;2625;0;2147483647;-2147483648;0
+candidate_walk;A;random;swap_edges;46370.380;99917;742;5696;7490;331;0;2147483647;-2147483648;0
+candidate_walk;B;random;swap_edges;50145.600;107858;2062;17019;19040;2768;0;2147483647;-2147483648;0
+MLSL;A;random;swap_edges;2442268.400;2897404;2034994;7741;7996;7484;200;200;200;200
+MLSL;B;random;swap_edges;2522331.000;2715944;2306598;19293;19706;19070;200;200;200;200
+ILS;A;random;swap_edges;2442566.150;2443184;2442277;8203;8587;7951;6065.75;5015;7153;5657
+ILS;B;random;swap_edges;2522583.350;2522925;2522356;19857;20048;19447;5425.85;4706;6081;5294
+LNS_subpaths_local;A;random;swap_edges;2444066.950;2447650;2442290;8199;8504;7787;756.5;633;820;771
+LNS_subpaths_local;B;random;swap_edges;2523918.200;2526251;2522673;19720;19967;19447;882.8;768;1049;850
+LNS_subpaths_no_local;A;random;swap_edges;2444208.700;2446842;2442338;8063;8457;7452;844.05;740;939;777
+LNS_subpaths_no_local;B;random;swap_edges;2523744.600;2525978;2522502;19575;19945;19165;980.25;880;1087;949
